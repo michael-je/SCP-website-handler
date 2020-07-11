@@ -1,9 +1,8 @@
 from bs4 import BeautifulSoup
 import requests
-from random import randint
 from webbrowser import open as wp_open
 from time import sleep
-from datetime import datetime
+from random import choice
 
 from classes import SCP
 from constants import headers, homepage_URL
@@ -11,7 +10,7 @@ import db
 import global_vars
 
 
-# todo refactor to search database instead of old dict
+# todo refactor this function to search database instead of old dict
 # def debug_display_scps(start=1, end=5, display_all=False, include_debug_info=False):
 #     if display_all:
 #         for scp_number in SCPs.keys():
@@ -72,9 +71,13 @@ def update_scp(scp_number, arg_scp_name=None):
     try:
         exists_check = soup.find('h1', id='toc0').text
         if exists_check == "This page doesn't exist yet!":
-            # SCPs[str_number] = SCP(str_number, None, None, None, scp_link, False, False, exists=False)
             print("SCP doesn't exist yet!")
-            # todo refactor so scp gets stored in database as non-existent
+            # Even if the SCP doesn't exist we add it to the database as non-existent.
+            # This allows us to fill the database with info on all scps later.
+            new_scp = SCP(scp_number, "N/A", "N/A", "N/A", "N/A", 0, exists=0)
+            result = db.add_scp(new_scp)
+            if result == -1:
+                db.update_scp(new_scp)
             return
     except AttributeError:
         pass
@@ -114,7 +117,7 @@ def update_scp(scp_number, arg_scp_name=None):
         has_image = 0
 
     # check whether the SCP has an unusual format (such as SCP 2000 and 2521)
-    # SCPs with unusual format will be given "Unknown" as their object class, and False for has_image
+    # SCPs with unusual format will be given "Unknown" as their object_class and False for has_image
     unusual_format = 0
     try:
         if has_image:
@@ -137,20 +140,16 @@ def update_scp(scp_number, arg_scp_name=None):
     else:
         object_class = "Unknown"
 
-    # get the current day and store it in the format "DD-MM-YYYY"
-    now = datetime.now()
-    last_updated = f"{now.day}-{now.month}-{now.year}"
-
     # construct an SCP object from the data
     new_scp = SCP(scp_number, name, object_class, rating, scp_link, has_image,
-                  unusual_format=unusual_format, last_updated=last_updated)
+                  unusual_format=unusual_format)
 
     # tries to add the scp to the database and gets the result of whether it was successful
     result = db.add_scp(new_scp)
     if result == -1:
         # this block will run if the scp is already in the database
-        # todo add in a condition
-        pass
+        # in this case we want to update it with the current data
+        db.update_scp(new_scp)
 
 
 def display_scp(scp_number, debug=False):
@@ -169,35 +168,54 @@ def go_to_scp_page(scp_number):
     wp_open(URL, new=2)
 
 
-# todo refactor below functions to search database instead of old dict
-# def give_random_scp(not_read_yet=True):
-#     highest_SCP_num = max(int(k) for k in SCPs.keys())
-#     while True:
-#         try:
-#             rand_SCP_int = randint(1, highest_SCP_num + 1)
-#             SCP_key = reformat_SCP_num(rand_SCP_int)
-#             if not_read_yet and SCPs[SCP_key].have_read == True:
-#                 pass
-#             else:
-#                 return SCPs[SCP_key]
-#         except KeyError:
-#             pass
-#
-#
-# def mark_scp_have_read_status(scp_number, have_read=True):
-#     str_number = reformat_SCP_num(scp_number)
-#     try:
-#         SCPs[str_number].have_read = have_read
-#     except KeyError:
-#         print('SCP not in dictionary!')
-#
-#
-# def mark_scp_dont_want_to_read_status(scp_number, dont_want_to_read=True):
-#     str_number = reformat_SCP_num(scp_number)
-#     try:
-#         SCPs[str_number].dont_want_to_read = dont_want_to_read
-#     except KeyError:
-#         print('SCP not in dictionary!')
+# create a function that returns a random SCP from the database
+# use additional arguments to specify if it should include scps which are flagged with
+# have_read, dont_want_to_read and/or exists. They are excluded by default.
+def give_random_scp(not_read_yet=True, want_to_read=True, does_exist=True):
+    extra_flags = []
+    if not_read_yet:
+        extra_flags.append("have_read")
+    if want_to_read:
+        extra_flags.append("dont_want_to_read")
+    if does_exist:
+        extra_flags.append("exists_online")
+    candidates = db.get_available_scp_numbers(extra_flags)
+
+    # here we filter through the candidate scps, continuing the loop if a flag is raised
+    filtered_candidates = []
+    for scp in candidates:
+        if scp.get("have_read") == 1:
+            continue
+        if scp.get("dont_want_to_read") == 1:
+            continue
+        if scp.get("exists_online") == 0:
+            continue
+        filtered_candidates.append(scp.get("number"))
+
+    random_scp_number = choice(filtered_candidates)
+    return db.get_scp(random_scp_number)
+
+
+def mark_scp_have_read_status(scp_number, have_read=True):
+    # updates the desired scps have_read status as given by the second argument
+    scp = db.get_scp(scp_number)
+    if scp == -1:
+        print("SCP not in database!")
+        return -1
+    scp.have_read = int(have_read)
+    db.update_scp(scp)
+    return 1
+
+
+def mark_scp_dont_want_to_read_status(scp_number, dont_want_to_read=True):
+    # updates the desired scps dont_want_to_read status as given by the second argument
+    scp = db.get_scp(scp_number)
+    if scp == -1:
+        print("SCP not in database!")
+        return -1
+    scp.dont_want_to_read = int(dont_want_to_read)
+    db.update_scp(scp)
+    return 1
 
 
 # todo functions to implement

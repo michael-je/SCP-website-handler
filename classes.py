@@ -28,3 +28,6 @@ class SCP:
             print('Has unusual format:', bool(self.unusal_format))
             print('Has image:', bool(self.has_image))
             print('Last updated:', self.last_updated)
+
+    def __repr__(self):
+        return "{} - {}\n{}\n".format(self.number, self.name, self.URL)
