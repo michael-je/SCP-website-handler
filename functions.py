@@ -3,25 +3,24 @@ import requests
 from random import randint
 from webbrowser import open as wp_open
 from time import sleep
+from datetime import datetime
 
 from classes import SCP
 from constants import headers, homepage_URL
+import db
 import global_vars
 
-SCPs = {}
-last_updated = None
-new_scps = None
 
-
-def debug_display_scps(start=1, end=5, display_all=False, include_debug_info=False):
-    if display_all:
-        for scp_number in SCPs.keys():
-            display_scp(SCPs[scp_number].number, debug=include_debug_info)
-            print('')
-    else:
-        for i in range(start, end+1):
-            display_scp(i, debug=include_debug_info)
-            print('')
+# todo refactor to search database instead of old dict
+# def debug_display_scps(start=1, end=5, display_all=False, include_debug_info=False):
+#     if display_all:
+#         for scp_number in SCPs.keys():
+#             display_scp(SCPs[scp_number].number, debug=include_debug_info)
+#             print('')
+#     else:
+#         for i in range(start, end+1):
+#             display_scp(i, debug=include_debug_info)
+#             print('')
 
 
 def debug_display_requests_count():
@@ -56,20 +55,22 @@ def get_scp_series_links():
 def update_scp(scp_number, arg_scp_name=None):
     # SCPs with unusual format will be given None as their object class, and False for has_image
     str_number = reformat_SCP_num(scp_number)
-    scp_link = f'http://www.scp-wiki.net/scp-{str_number}'
+    scp_link = f'http://www.scp-wiki.net/scp-{scp_number}'
     source = requests.get(scp_link, headers=headers)                        # request
     global_vars.debug_requests_count += 1
     soup = BeautifulSoup(source.text, 'lxml')
+
 
     # check whether SCP page exists
     try:
         exists_check = soup.find('h1', id='toc0').text
         if exists_check == "This page doesn't exist yet!":
-            SCPs[str_number] = SCP(str_number, None, None, None, scp_link, False, False, exists=False)
+            # SCPs[str_number] = SCP(str_number, None, None, None, scp_link, False, False, exists=False)
             print("SCP doesn't exist yet!")
+            # todo refactor so scp gets stored in database as non-existent
             return
     except AttributeError:
-        exists = True
+        exists = 1
 
     if arg_scp_name:
         name = arg_scp_name
@@ -90,25 +91,26 @@ def update_scp(scp_number, arg_scp_name=None):
 
     try:
         rating = page_content.find('span', class_='number prw54353').text   # find the SCP's rating
-        rating = int(''.join([l for l in rating if l.isnumeric()]))
+        rating = ''.join([l for l in rating if l.isnumeric()])
     except AttributeError:
-        rating = None
+        # This value is stored as a string in the db
+        rating = "Unknown"
 
     try:                                                                # checks whether the SCP has an image
-        has_image = bool(page_content.find_all('div', recursive=False)[1].img)
+        has_image = int(bool(page_content.find_all('div', recursive=False)[1].img))
     except IndexError:                                                  # has_image = False by deault as a catch-all
-        has_image = False
+        has_image = 0
 
-    unusual_format = False                                              # check whether the SCP has an unusual format
+    unusual_format = 0                                                  # check whether the SCP has an unusual format
     try:                                                                # such as SCP 2000 and 2521
         if has_image:
             if page_content.select('p')[1].text.split(' ')[0] != 'Item':
-                unusual_format = True
+                unusual_format = 1
         else:
             if page_content.select('p')[0].text.split(' ')[0] != 'Item':
-                unusual_format = True
+                unusual_format = 1
     except IndexError:
-        unusual_format = True
+        unusual_format = 1
 
     if not unusual_format:                                              # finds the SCP's object class
         if has_image:                                                   # class = None by default if it's format
@@ -118,68 +120,70 @@ def update_scp(scp_number, arg_scp_name=None):
             object_class = page_content.find_all('p')[1].text
             object_class = object_class.split(' ')[2]
     else:
-        object_class = None
+        object_class = "Unknown"
 
-    # check if this SCP is already in the SCPs dict
-    # if yes: update attributes
-    # if no: create new SCP object with these attributes
-    try:
-        SCPs[str_number].name = name
-        SCPs[str_number].object_class = object_class
-        SCPs[str_number].rating = rating
-        SCPs[str_number].URL = scp_link
-        SCPs[str_number].exists = exists
-        SCPs[str_number].unusual_format = unusual_format
-        SCPs[str_number].has_image = has_image
-    except KeyError:
-        SCPs[str_number] = SCP(str_number, name, object_class, rating, scp_link, has_image,
-                               unusual_format=unusual_format)
+    # get the current day and store it in the format "DD-MM-YYYY"
+    now = datetime.now()
+    last_updated = f"{now.day}-{now.month}-{now.year}"
 
+    # construct an SCP object from the data
+    new_scp = SCP(scp_number, name, object_class, rating, scp_link, has_image,
+                  unusual_format=unusual_format, last_updated=last_updated)
 
-def give_random_scp(not_read_yet=True):
-    highest_SCP_num = max(int(k) for k in SCPs.keys())
-    while True:
-        try:
-            rand_SCP_int = randint(1, highest_SCP_num + 1)
-            SCP_key = reformat_SCP_num(rand_SCP_int)
-            if not_read_yet and SCPs[SCP_key].have_read == True:
-                pass
-            else:
-                return SCPs[SCP_key]
-        except KeyError:
-            pass
+    # tries to add the scp to the database and gets the result of whether it was successful
+    result = db.add_scp(new_scp)
+    if result == -1:
+        # this block will run if the scp is already in the database
+        # todo add in a condition
+        pass
 
 
 def display_scp(scp_number, debug=False):
-    str_number = reformat_SCP_num(scp_number)
-    try:
-        SCPs[str_number].display(debug=debug)
-    except KeyError:
-        print(f'SCP-{str_number} not in dictionary!')
-
-
-def mark_scp_read_status(scp_number, have_read=True):
-    str_number = reformat_SCP_num(scp_number)
-    try:
-        SCPs[str_number].have_read = have_read
-    except KeyError:
-        print('SCP not in dictionary!')
-
-
-def mark_scp_dont_want_to_read_status(scp_number, dont_want_to_read=True):
-    str_number = reformat_SCP_num(scp_number)
-    try:
-        SCPs[str_number].dont_want_to_read = dont_want_to_read
-    except KeyError:
-        print('SCP not in dictionary!')
+    # str_number = reformat_SCP_num(scp_number)
+    scp = db.get_scp(scp_number)
+    if scp == -1:
+        print(f"SCP-{scp_number} not in database!")
+    else:
+        scp.display(debug=debug)
 
 
 def go_to_scp_page(scp_number):
-    str_number = reformat_SCP_num(scp_number)
-    URL = homepage_URL + 'scp-' + str_number
+    URL = homepage_URL + 'scp-' + str(scp_number)
     wp_open(URL, new=2)
 
-# functions to implement
+
+# todo refactor below functions to search database instead of old dict
+# def give_random_scp(not_read_yet=True):
+#     highest_SCP_num = max(int(k) for k in SCPs.keys())
+#     while True:
+#         try:
+#             rand_SCP_int = randint(1, highest_SCP_num + 1)
+#             SCP_key = reformat_SCP_num(rand_SCP_int)
+#             if not_read_yet and SCPs[SCP_key].have_read == True:
+#                 pass
+#             else:
+#                 return SCPs[SCP_key]
+#         except KeyError:
+#             pass
+#
+#
+# def mark_scp_read_status(scp_number, have_read=True):
+#     str_number = reformat_SCP_num(scp_number)
+#     try:
+#         SCPs[str_number].have_read = have_read
+#     except KeyError:
+#         print('SCP not in dictionary!')
+#
+#
+# def mark_scp_dont_want_to_read_status(scp_number, dont_want_to_read=True):
+#     str_number = reformat_SCP_num(scp_number)
+#     try:
+#         SCPs[str_number].dont_want_to_read = dont_want_to_read
+#     except KeyError:
+#         print('SCP not in dictionary!')
+
+
+# todo functions to implement
 
 
 def update_all_scps():                      # currently in debug, remove or edit list indexing to fix
