@@ -24,12 +24,16 @@ import global_vars
 
 
 def debug_display_requests_count():
+    # prints out how many times the code has sent a request to the wiki since it started running
+    # counters are stored in global_vars
     print(f'{global_vars.debug_requests_count - global_vars.debug_requests_count_last} requests sent.')
     print(f'{global_vars.debug_requests_count} requests sent in total.')
     global_vars.debug_requests_count_last = global_vars.debug_requests_count
 
 
 def reformat_SCP_num(scp_number):
+    # reformats an integer value scp_number to a string, since integers can not have leading 0s
+    # this is necessary to construct some of the URLs
     str_number = str(scp_number)
     while (len(str_number)) < 3:
         str_number = '0' + str_number
@@ -37,6 +41,8 @@ def reformat_SCP_num(scp_number):
 
 
 def get_scp_series_links():
+    # The SCP wiki divides the SCPs to different pages in groupings of 1000, this functions scrapes the
+    # homepage of the wiki to find the links to each page
     main_source = requests.get(homepage_URL, headers=headers)               # request
     global_vars.debug_requests_count += 1
     main_soup = BeautifulSoup(main_source.text, 'lxml')
@@ -53,7 +59,8 @@ def get_scp_series_links():
 
 
 def update_scp(scp_number, arg_scp_name=None):
-    # SCPs with unusual format will be given None as their object class, and False for has_image
+    # This functions scrapes the wiki to find all desired data about the SCP under the given scp_number.
+    # It does this piece by piece and then adds all the data to the database if the SCP exists
     str_number = reformat_SCP_num(scp_number)
     scp_link = f'http://www.scp-wiki.net/scp-{scp_number}'
     source = requests.get(scp_link, headers=headers)                        # request
@@ -70,14 +77,16 @@ def update_scp(scp_number, arg_scp_name=None):
             # todo refactor so scp gets stored in database as non-existent
             return
     except AttributeError:
-        exists = 1
+        pass
 
+    # Gets the name of the SCP if not supplied via argument
+    # (only accessible via the SCP series links otherwise)
     if arg_scp_name:
         name = arg_scp_name
     else:
-        if len(str_number) < 4:                                             # Gets the name of the SCP if not supplied via
-            series_link = get_scp_series_links()[0]                         # argument (only accessible via the SCP series
-        else:                                                               # links otherwise)
+        if len(str_number) < 4:
+            series_link = get_scp_series_links()[0]
+        else:
             series_link = get_scp_series_links()[int(str_number[0])]
         scp_list_index = int(str_number[-2:])
         main_list_index = int(str_number[-3])
@@ -89,20 +98,25 @@ def update_scp(scp_number, arg_scp_name=None):
 
     page_content = soup.find('div', id='page-content')
 
+    # find the SCP's rating
     try:
-        rating = page_content.find('span', class_='number prw54353').text   # find the SCP's rating
+        rating = page_content.find('span', class_='number prw54353').text
         rating = ''.join([l for l in rating if l.isnumeric()])
     except AttributeError:
         # This value is stored as a string in the db
         rating = "Unknown"
 
-    try:                                                                # checks whether the SCP has an image
+    # checks whether the SCP has an image
+    try:
         has_image = int(bool(page_content.find_all('div', recursive=False)[1].img))
-    except IndexError:                                                  # has_image = False by deault as a catch-all
+    except IndexError:
+        # has_image = False by deault as a catch-all
         has_image = 0
 
-    unusual_format = 0                                                  # check whether the SCP has an unusual format
-    try:                                                                # such as SCP 2000 and 2521
+    # check whether the SCP has an unusual format (such as SCP 2000 and 2521)
+    # SCPs with unusual format will be given "Unknown" as their object class, and False for has_image
+    unusual_format = 0
+    try:
         if has_image:
             if page_content.select('p')[1].text.split(' ')[0] != 'Item':
                 unusual_format = 1
@@ -112,9 +126,10 @@ def update_scp(scp_number, arg_scp_name=None):
     except IndexError:
         unusual_format = 1
 
-    if not unusual_format:                                              # finds the SCP's object class
-        if has_image:                                                   # class = None by default if it's format
-            object_class = page_content.find_all('p')[2].text           # is unnusual
+    # finds the SCP's object class. object_class = "Unknown" by default if it's format is unusual
+    if not unusual_format:
+        if has_image:
+            object_class = page_content.find_all('p')[2].text
             object_class = ' '.join(object_class.split(' ')[2:])
         else:
             object_class = page_content.find_all('p')[1].text
@@ -139,7 +154,8 @@ def update_scp(scp_number, arg_scp_name=None):
 
 
 def display_scp(scp_number, debug=False):
-    # str_number = reformat_SCP_num(scp_number)
+    # Finds data on an SCP from the database and displays it to the terminal
+    # set debug=True for hidden data
     scp = db.get_scp(scp_number)
     if scp == -1:
         print(f"SCP-{scp_number} not in database!")
@@ -148,6 +164,7 @@ def display_scp(scp_number, debug=False):
 
 
 def go_to_scp_page(scp_number):
+    # opens the SCP webpage in a webbrowser
     URL = homepage_URL + 'scp-' + str(scp_number)
     wp_open(URL, new=2)
 
@@ -167,7 +184,7 @@ def go_to_scp_page(scp_number):
 #             pass
 #
 #
-# def mark_scp_read_status(scp_number, have_read=True):
+# def mark_scp_have_read_status(scp_number, have_read=True):
 #     str_number = reformat_SCP_num(scp_number)
 #     try:
 #         SCPs[str_number].have_read = have_read
@@ -205,7 +222,8 @@ def update_all_scps():                      # currently in debug, remove or edit
                 if scp_tag != doesnt_exist_tag:
                     update_scp(scp_number, arg_scp_name=scp_tag)
 
-                sleep(global_vars.delay_time_s)   # delay time to make sure I don't overload their website with requests
+                # delay time to make sure I don't overload their website with requests
+                sleep(global_vars.delay_time_s)
 
 
 def display_top_scps(number):

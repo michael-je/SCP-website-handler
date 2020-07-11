@@ -19,7 +19,6 @@ import functions
 
 # debug_display_scps(start=2, end=10, include_debug_info=True)
 
-# update_scp(3001)
 # debug_display_scps(display_all=True)
 # debug_display_requests_count()
 
