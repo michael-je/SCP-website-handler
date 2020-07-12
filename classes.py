@@ -29,5 +29,21 @@ class SCP:
             print('Has image:', bool(self.has_image))
             print('Last updated:', self.last_updated)
 
+    def debug_info(self):
+        return [
+            f"number - {self.number}",
+            f"name - {self.name}",
+            f"class - {self.object_class}",
+            f"rating - {self.rating}",
+            f"URL - {self.URL}",
+            f"has_image - {self.has_image}",
+            f"have_read - {self.have_read}",
+            f"dont_want - {self.dont_want_to_read}",
+            f"exists - {self.exists}",
+            f"is_favorite - {self.is_favorite}",
+            f"unusual - {self.unusal_format}",
+            f"last_updated - {self.last_updated}"
+        ]
+
     def __repr__(self):
         return "{} - {}\n{}\n".format(self.number, self.name, self.URL)

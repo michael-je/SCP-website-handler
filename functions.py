@@ -10,18 +10,6 @@ import db
 import global_vars
 
 
-# todo refactor this function to search database instead of old dict
-# def debug_display_scps(start=1, end=5, display_all=False, include_debug_info=False):
-#     if display_all:
-#         for scp_number in SCPs.keys():
-#             display_scp(SCPs[scp_number].number, debug=include_debug_info)
-#             print('')
-#     else:
-#         for i in range(start, end+1):
-#             display_scp(i, debug=include_debug_info)
-#             print('')
-
-
 def debug_display_requests_count():
     # prints out how many times the code has sent a request to the wiki since it started running
     # counters are stored in global_vars
@@ -66,8 +54,8 @@ def update_scp(scp_number, arg_scp_name=None):
     global_vars.debug_requests_count += 1
     soup = BeautifulSoup(source.text, 'lxml')
 
-
     # check whether SCP page exists
+    # todo add in another check in case the page for scp doesn't even exist (e.g. with high numbers >6000 currently)
     try:
         exists_check = soup.find('h1', id='toc0').text
         if exists_check == "This page doesn't exist yet!":
@@ -171,7 +159,7 @@ def go_to_scp_page(scp_number):
 # create a function that returns a random SCP from the database
 # use additional arguments to specify if it should include scps which are flagged with
 # have_read, dont_want_to_read and/or exists. They are excluded by default.
-def give_random_scp(not_read_yet=True, want_to_read=True, does_exist=True):
+def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True):
     extra_flags = []
     if not_read_yet:
         extra_flags.append("have_read")
@@ -181,7 +169,7 @@ def give_random_scp(not_read_yet=True, want_to_read=True, does_exist=True):
         extra_flags.append("exists_online")
     candidates = db.get_available_scp_numbers(extra_flags)
 
-    # here we filter through the candidate scps, continuing the loop if a flag is raised
+    # here we filter through the candidate scps, continuing the loop (thus excluding the scp) if a condition is met
     filtered_candidates = []
     for scp in candidates:
         if scp.get("have_read") == 1:
@@ -218,9 +206,7 @@ def mark_scp_dont_want_to_read_status(scp_number, dont_want_to_read=True):
     return 1
 
 
-# todo functions to implement
-
-
+# todo refactor and fix this function to make it safe for use
 def update_all_scps():                      # currently in debug, remove or edit list indexing to fix
     for link in [get_scp_series_links()[0]]:
         link_source = requests.get(link, headers=headers)                   # request
@@ -244,7 +230,8 @@ def update_all_scps():                      # currently in debug, remove or edit
                 sleep(global_vars.delay_time_s)
 
 
+# todo create this function
+# create a function that returns the top x rated scps
+# add an option to exclude spcs with certain flags e.g. have_read etc.
 def display_top_scps(number):
     pass
-
-

@@ -181,13 +181,3 @@ def get_available_scp_numbers(additional_data=[]):
         output_data.append(scp_dict)
 
     return output_data
-
-
-def get_random_scp():
-
-
-
-
-    conn.commit()
-    conn.close()
-

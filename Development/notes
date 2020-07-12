@@ -10,6 +10,3 @@ add options for the update_all_scps function to be able to only update certain s
 
 add logging information
 
-maybe save the SCP info as JSON data?
-    - https://www.youtube.com/watch?v=9N6a-VLBa2I
-
