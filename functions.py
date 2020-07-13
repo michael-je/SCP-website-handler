@@ -138,6 +138,10 @@ def update_scp(scp_number, arg_scp_name=None):
         # this block will run if the scp is already in the database
         # in this case we want to update it with the current data
         db.update_scp(new_scp)
+        # 2 indicates that the scp was updated
+        return 2
+    # 1 indicates that the SCP was added
+    return 1
 
 
 def display_scp(scp_number, debug=False):
@@ -159,7 +163,7 @@ def go_to_scp_page(scp_number):
 # create a function that returns a random SCP from the database
 # use additional arguments to specify if it should include scps which are flagged with
 # have_read, dont_want_to_read and/or exists. They are excluded by default.
-def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True):
+def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True, is_favorite=False):
     extra_flags = []
     if not_read_yet:
         extra_flags.append("have_read")
@@ -167,6 +171,8 @@ def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True):
         extra_flags.append("dont_want_to_read")
     if does_exist:
         extra_flags.append("exists_online")
+    if is_favorite:
+        extra_flags.append("is_favorite")
     candidates = db.get_available_scp_numbers(extra_flags)
 
     # here we filter through the candidate scps, continuing the loop (thus excluding the scp) if a condition is met
@@ -178,9 +184,14 @@ def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True):
             continue
         if scp.get("exists_online") == 0:
             continue
+        if scp.get("is_favorite") == 0:
+            continue
         filtered_candidates.append(scp.get("number"))
-
-    random_scp_number = choice(filtered_candidates)
+    try:
+        random_scp_number = choice(filtered_candidates)
+    except IndexError:
+        # -1 indicates that the search returned no results
+        return -1
     return db.get_scp(random_scp_number)
 
 
@@ -228,10 +239,3 @@ def update_all_scps():                      # currently in debug, remove or edit
 
                 # delay time to make sure I don't overload their website with requests
                 sleep(global_vars.delay_time_s)
-
-
-# todo create this function
-# create a function that returns the top x rated scps
-# add an option to exclude spcs with certain flags e.g. have_read etc.
-def display_top_scps(number):
-    pass
