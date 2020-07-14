@@ -1,3 +1,4 @@
+
 from bs4 import BeautifulSoup
 import requests
 from webbrowser import open as wp_open
@@ -55,7 +56,6 @@ def update_scp(scp_number, arg_scp_name=None):
     soup = BeautifulSoup(source.text, 'lxml')
 
     # check whether SCP page exists
-    # todo add in another check in case the page for scp doesn't even exist (e.g. with high numbers >6000 currently)
     try:
         exists_check = soup.find('h1', id='toc0').text
         if exists_check == "This page doesn't exist yet!":
@@ -163,7 +163,7 @@ def go_to_scp_page(scp_number):
 # create a function that returns a random SCP from the database
 # use additional arguments to specify if it should include scps which are flagged with
 # have_read, dont_want_to_read and/or exists. They are excluded by default.
-def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True, is_favorite=False):
+def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True, is_favorite=False, read_later=False):
     extra_flags = []
     if not_read_yet:
         extra_flags.append("have_read")
@@ -173,6 +173,8 @@ def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True, is_fav
         extra_flags.append("exists_online")
     if is_favorite:
         extra_flags.append("is_favorite")
+    if read_later:
+        extra_flags.append("read_later")
     candidates = db.get_available_scp_numbers(extra_flags)
 
     # here we filter through the candidate scps, continuing the loop (thus excluding the scp) if a condition is met
@@ -185,6 +187,8 @@ def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True, is_fav
         if scp.get("exists_online") == 0:
             continue
         if scp.get("is_favorite") == 0:
+            continue
+        if scp.get("read_later") == 0:
             continue
         filtered_candidates.append(scp.get("number"))
     try:

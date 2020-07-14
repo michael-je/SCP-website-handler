@@ -28,7 +28,8 @@ def set_up_database():
         exists_online integer,
         is_favorite integer,
         unusual_format integer,
-        last_updated text)
+        last_updated text,
+        read_later integer)
         """)
 
     conn.commit()
@@ -57,7 +58,8 @@ def update_scp(scp):
         exists_online = :exists_online,
         is_favorite = :is_favorite,
         unusual_format = :unusual_format,
-        last_updated = :last_updated
+        last_updated = :last_updated,
+        read_later = :read_later
         
         WHERE id_number=:id_number""",
         {
@@ -72,7 +74,8 @@ def update_scp(scp):
         "exists_online": scp.exists,
         "is_favorite": scp.is_favorite,
         "unusual_format": scp.unusal_format,
-        "last_updated": last_updated
+        "last_updated": last_updated,
+        "read_later": scp.read_later
         }
     )
 
@@ -108,9 +111,10 @@ def get_scp(scp_id_number):
     is_favorite = data[9]
     unusual_format = data[10]
     last_updated = data[11]
+    read_later = data[12]
 
     output_scp = SCP(id_number, name, object_class, rating, URL, has_image, have_read, dont_want_to_read,
-                     exists_online, is_favorite, unusual_format, last_updated)
+                     exists_online, is_favorite, unusual_format, last_updated, read_later)
 
     return output_scp
 
@@ -128,7 +132,7 @@ def add_scp(scp):
     check_db = get_scp(scp.number)
     if check_db == -1:
         c.execute("INSERT INTO scps VALUES (:id_number, :name, :object_class, :rating, :URL, :has_image, :have_read,\
-            :dont_want_to_read, :exists_online, :is_favorite, :unusual_format, :last_updated)",
+            :dont_want_to_read, :exists_online, :is_favorite, :unusual_format, :last_updated, :read_later)",
             {
             "id_number": scp.number,
             "name": scp.name,
@@ -141,7 +145,8 @@ def add_scp(scp):
             "exists_online": scp.exists,
             "is_favorite": scp.is_favorite,
             "unusual_format": scp.unusal_format,
-            "last_updated": last_updated
+            "last_updated": last_updated,
+            "read_later": scp.read_later
             }
         )
     else:

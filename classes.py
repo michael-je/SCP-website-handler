@@ -1,6 +1,6 @@
 class SCP:
     def __init__(self, number, name, object_class, rating, URL, has_image, have_read=0, dont_want_to_read=0, exists=1,
-                 is_favorite=0, unusual_format=0, last_updated="Never"):
+                 is_favorite=0, unusual_format=0, last_updated="Never", read_later=False):
         self.number = number
         self.name = name
         self.object_class = object_class
@@ -13,6 +13,7 @@ class SCP:
         self.is_favorite = is_favorite
         self.unusal_format = unusual_format
         self.last_updated = last_updated
+        self.read_later = read_later
 
     def display(self, debug=False):
         print('Number:', self.number)
@@ -28,6 +29,7 @@ class SCP:
             print('Has unusual format:', bool(self.unusal_format))
             print('Has image:', bool(self.has_image))
             print('Last updated:', self.last_updated)
+            print('Read Later', self.read_later)
 
     def debug_info(self):
         return [
@@ -43,6 +45,7 @@ class SCP:
             f"is_favorite - {self.is_favorite}",
             f"unusual - {self.unusal_format}",
             f"last_updated - {self.last_updated}"
+            f"read_later - {self.read_later}"
         ]
 
     def __repr__(self):
