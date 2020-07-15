@@ -1,6 +1,5 @@
 from tkinter import *
 from tkinter import messagebox
-from math import floor
 
 import db
 import functions
@@ -8,7 +7,6 @@ from classes import SCP
 import global_vars
 
 # todo maybe add a notes feature
-# todo also add button to update multiple scps at once, but be careful with that one
 
 # create the database
 # db.set_up_database()
@@ -18,7 +16,7 @@ window_name = "SCP Handler"
 root = Tk()
 root.title(window_name)
 root.iconphoto(False, PhotoImage(file="scp-logo.png"))
-root.geometry("658x356+400+350")
+root.geometry("658x356+350+350")
 root.configure(bg="lightgrey")
 root.resizable(width=False, height=False)
 
@@ -73,12 +71,99 @@ def update_current_scp():
     db.update_scp(current_scp)
 
 
-# todo create this function and its associated window, be careful with this function
-# add options for selecting a range to update in, along with filters like if they are already in the database or not
-# also allow for setting an update speed and have a maximum speed
-# maybe implement the sleep before every single request call
-def update_multiple_scps():
-    pass
+# used to update multiple SCPs at once
+def update_multiple_scps_window():
+    global update
+
+    global_vars.delay_time_ms = 200
+
+    # in case the window is already open
+    try:
+        if update.state() == "zoomed":
+            return
+    except NameError:
+        pass
+    except TclError:
+        pass
+
+    # function to close the update window, also resets the delay time
+    def update_close_window():
+        update.destroy()
+        global_vars.delay_time_ms = global_vars.delay_time_ms_default
+
+    # function called by the update button
+    def update_multiple_scps():
+        try:
+            if int(entry_upper_bound.get()) - int(entry_lower_bound.get()) < 1 or int(entry_lower_bound.get()) < 1:
+                messagebox.showerror("Update multiple SCPs", "Please ender a valid range.")
+                entry_upper_bound.delete(0, END)
+                entry_lower_bound.delete(0, END)
+                return
+        except ValueError:
+            messagebox.showerror("Update multiple SCPs", "Please ender a valid range.")
+            entry_upper_bound.delete(0, END)
+            entry_lower_bound.delete(0, END)
+            return
+        before_request_count = global_vars.debug_requests_count
+
+        # todo add in the filtering
+        only_new_filter
+
+        how_many_to_update = int(entry_upper_bound.get()) - int(entry_lower_bound.get()) + 1
+        result = messagebox.askyesno("Update multiple SCPs",
+                                     f"Are you sure you wish to update {how_many_to_update} SCPs\n" +
+                                     f"with a {global_vars.delay_time_ms} ms delay between requests?")
+        if result == 0:
+            return
+
+        for scp_number in range(int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1):
+            result = functions.update_scp(scp_number)
+            print(f"Updated {scp_number}")
+        current_request_count = global_vars.debug_requests_count
+        messagebox.showinfo("Update multiple SCPs",
+                            f"Updated {int(entry_upper_bound.get())-int(entry_lower_bound.get())} SCPs successfully!\n" +
+                            f"{current_request_count-before_request_count} requests sent.")
+        update_info_var()
+
+    # create the window
+    update = Toplevel()
+    update.title(f"Update multiple SCPs")
+    update.iconphoto(False, PhotoImage(file="scp-logo.png"))
+    update.geometry("400x500+1050+200")
+    update.resizable(width=False, height=False)
+    update.protocol("WM_DELETE_WINDOW", update_close_window)
+
+    only_new_filter = IntVar()
+
+    # todo make the windows gui nicer
+    # create the widgets
+    text_frame = LabelFrame(update, bd=0)
+    text_label1 = Label(text_frame, text="Update SCPs from")
+    entry_lower_bound = Entry(text_frame, width=4)
+    text_label2 = Label(text_frame, text="to")
+    entry_upper_bound = Entry(text_frame, width=4)
+    delay_ms_label = Label(update, text="200 ms delay\nbetween requests")
+    # callback function for slider
+    def update_slider(var):
+        global_vars.delay_time_ms = int(var)
+        delay_ms_label.configure(text=f"{global_vars.delay_time_ms}ms delay\nbetween requests")
+    delay_slider = Scale(update, from_=200, to=2000, command=update_slider, showvalue=0, orient=HORIZONTAL)
+    update_button = Button(update, text="Update SCPs", command=update_multiple_scps)
+    only_new_filter_checkbox = Checkbutton(update, text="Only check for SCPS\nnot currently in database",
+                                           variable=only_new_filter, onvalue=1, offvalue=0)
+    close_window_button = Button(update, text="Close Window", command=update_close_window)
+
+    # place the widgets
+    text_frame.grid(row=0, column=0)
+    text_label1.grid(row=0, column=0)
+    entry_lower_bound.grid(row=0, column=1)
+    text_label2.grid(row=0, column=2)
+    entry_upper_bound.grid(row=0, column=3)
+    delay_ms_label.grid(row=1, column=0)
+    delay_slider.grid(row=1, column=1)
+    update_button.grid(row=0, column=1)
+    close_window_button.grid(row=2, column=0)
+    only_new_filter_checkbox.grid(row=3, column=0)
 
 
 # function to set current SCP and display it in the scp_display_frame based on its number
@@ -238,7 +323,7 @@ def show_top_x(highest_rank_index, lowest_rank_index):
         top = Toplevel()
         top.title(f"Top SCPs")
         top.iconphoto(False, PhotoImage(file="scp-logo.png"))
-        top.geometry("400x500+950+200")
+        top.geometry("400x500+1050+200")
         top.resizable(width=False, height=False)
 
     # filter search based on checkboxes
@@ -323,7 +408,6 @@ def update_info_var():
     info_var.set(f"{num_scps_in_db} SCPs\nin database\n\n{total_requests} requests sent")
 
 
-
 # create and update the info variable
 info_var = StringVar()
 update_info_var()
@@ -366,7 +450,7 @@ open_scp_in_browser_button = Button(side_frame, text="Open in\nBrowser", command
                                     width=15, height=3)
 info_label_scp_count = Label(side_frame, textvariable=info_var,
                              width=15, height=4)
-update_multiple_button = Button(side_frame, text="Update\nmultiple SCps", command=update_multiple_scps,
+update_multiple_button = Button(side_frame, text="Update\nmultiple SCps", command=update_multiple_scps_window,
                                 width=15, height=4)
 quit_button = Button(side_frame, text="Quit", command=root.quit,
                      width=15, height=3)
@@ -398,7 +482,7 @@ side_frame.grid(row=0, column=4, rowspan=4, pady=10, sticky=N)
 open_scp_in_browser_button.grid(row=0, column=0, padx=10, pady=(10, 12))
 info_label_scp_count.grid(row=2, column=0, padx=10, pady=12)
 update_multiple_button.grid(row=3, column=0, padx=10, pady=12)
-quit_button.grid(row=4, column=0, padx=10, pady=(12, 10))
+quit_button.grid(row=4, column=0, padx=10, pady=(12, 11))
 
 # debug_button.pack()
 

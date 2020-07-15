@@ -2,8 +2,8 @@
 from bs4 import BeautifulSoup
 import requests
 from webbrowser import open as wp_open
-from time import sleep
 from random import choice
+from time import sleep
 
 from classes import SCP
 from constants import headers, homepage_URL
@@ -14,9 +14,7 @@ import global_vars
 def debug_display_requests_count():
     # prints out how many times the code has sent a request to the wiki since it started running
     # counters are stored in global_vars
-    print(f'{global_vars.debug_requests_count - global_vars.debug_requests_count_last} requests sent.')
-    print(f'{global_vars.debug_requests_count} requests sent in total.')
-    global_vars.debug_requests_count_last = global_vars.debug_requests_count
+    print(f'{global_vars.debug_requests_count} requests sent.')
 
 
 def reformat_SCP_num(scp_number):
@@ -31,6 +29,10 @@ def reformat_SCP_num(scp_number):
 def get_scp_series_links():
     # The SCP wiki divides the SCPs to different pages in groupings of 1000, this functions scrapes the
     # homepage of the wiki to find the links to each page
+
+    # sleep before every request to avoid spamming the server with requests
+    if global_vars.sleep_brake:
+        sleep(global_vars.delay_time_ms / 1000)
     main_source = requests.get(homepage_URL, headers=headers)               # request
     global_vars.debug_requests_count += 1
     main_soup = BeautifulSoup(main_source.text, 'lxml')
@@ -46,11 +48,15 @@ def get_scp_series_links():
     return scp_series_links
 
 
-def update_scp(scp_number, arg_scp_name=None):
+# todo this function currently seems to fail on low scp numbers (001-002) for example, try to fix it. This is probably because of leading 0s, might be reformat_SCP_num
+def update_scp(scp_number):
     # This functions scrapes the wiki to find all desired data about the SCP under the given scp_number.
     # It does this piece by piece and then adds all the data to the database if the SCP exists
     str_number = reformat_SCP_num(scp_number)
     scp_link = f'http://www.scp-wiki.net/scp-{scp_number}'
+    # sleep before every request to avoid spamming the server with requests
+    if global_vars.sleep_brake:
+        sleep(global_vars.delay_time_ms / 1000)
     source = requests.get(scp_link, headers=headers)                        # request
     global_vars.debug_requests_count += 1
     soup = BeautifulSoup(source.text, 'lxml')
@@ -70,22 +76,35 @@ def update_scp(scp_number, arg_scp_name=None):
     except AttributeError:
         pass
 
-    # Gets the name of the SCP if not supplied via argument
-    # (only accessible via the SCP series links otherwise)
-    if arg_scp_name:
-        name = arg_scp_name
+    # sets series_index based on the first number of the scp, this is needed for the code below
+    if len(str_number) < 4:
+        series_index = 0
     else:
-        if len(str_number) < 4:
-            series_link = get_scp_series_links()[0]
-        else:
-            series_link = get_scp_series_links()[int(str_number[0])]
-        scp_list_index = int(str_number[-2:])
-        main_list_index = int(str_number[-3])
-        series_source = requests.get(series_link, headers=headers)          # request
-        global_vars.debug_requests_count += 1
-        series_soup = BeautifulSoup(series_source.text, 'lxml')
-        scp_names_sublist = series_soup.find('div', class_='content-panel standalone series').select('ul')[main_list_index + 1].find_all('li')
-        name = ' - '.join(scp_names_sublist[scp_list_index].text.split(" - ")[1:])
+        series_index = int(str_number[0])
+
+    # This makes it so that we only get the series links once any time the program is run. This avoids
+    # sending unnecessary requests to the server
+    if global_vars.series_links is None:
+        global_vars.series_links = get_scp_series_links()
+
+    # The SCPs are bunched together in groups of 1000 called a "series".
+    # this fetches the source content for the series that this scp is located at, which is the only place we can
+    # find its name. If this specific series source was not already requested we do that now - then we store it in
+    # memory until the program is terminated to avoid unecessary requests in the future
+    if global_vars.series_sources.get(series_index) is None:
+        # sleep before every request to avoid spamming the server with requests
+        if global_vars.sleep_brake:
+            sleep(global_vars.delay_time_ms/1000)
+        global_vars.series_sources[series_index] = requests.get(global_vars.series_links[series_index], headers=headers)
+        global_vars.debug_requests_count += 1                               # request
+    series_source = global_vars.series_sources[series_index]
+
+    # Gets the name of the SCP (only accessible via the SCP series links)
+    scp_list_index = int(str_number[-2:])
+    main_list_index = int(str_number[-3])
+    series_soup = BeautifulSoup(series_source.text, 'lxml')
+    scp_names_sublist = series_soup.find('div', class_='content-panel standalone series').select('ul')[main_list_index + 1].find_all('li')
+    name = ' - '.join(scp_names_sublist[scp_list_index].text.split(" - ")[1:])
 
     page_content = soup.find('div', id='page-content')
 
@@ -144,16 +163,6 @@ def update_scp(scp_number, arg_scp_name=None):
     return 1
 
 
-def display_scp(scp_number, debug=False):
-    # Finds data on an SCP from the database and displays it to the terminal
-    # set debug=True for hidden data
-    scp = db.get_scp(scp_number)
-    if scp == -1:
-        print(f"SCP-{scp_number} not in database!")
-    else:
-        scp.display(debug=debug)
-
-
 def go_to_scp_page(scp_number):
     # opens the SCP webpage in a webbrowser
     URL = homepage_URL + 'scp-' + str(scp_number)
@@ -199,47 +208,11 @@ def get_random_scp(not_read_yet=True, want_to_read=True, does_exist=True, is_fav
     return db.get_scp(random_scp_number)
 
 
-def mark_scp_have_read_status(scp_number, have_read=True):
-    # updates the desired scps have_read status as given by the second argument
+def display_scp(scp_number, debug=False):
+    # Finds data on an SCP from the database and displays it to the terminal
+    # set debug=True for hidden data
     scp = db.get_scp(scp_number)
     if scp == -1:
-        print("SCP not in database!")
-        return -1
-    scp.have_read = int(have_read)
-    db.update_scp(scp)
-    return 1
-
-
-def mark_scp_dont_want_to_read_status(scp_number, dont_want_to_read=True):
-    # updates the desired scps dont_want_to_read status as given by the second argument
-    scp = db.get_scp(scp_number)
-    if scp == -1:
-        print("SCP not in database!")
-        return -1
-    scp.dont_want_to_read = int(dont_want_to_read)
-    db.update_scp(scp)
-    return 1
-
-
-# todo refactor and fix this function to make it safe for use
-def update_all_scps():                      # currently in debug, remove or edit list indexing to fix
-    for link in [get_scp_series_links()[0]]:
-        link_source = requests.get(link, headers=headers)                   # request
-        global_vars.debug_requests_count += 1
-        link_soup = BeautifulSoup(link_source.text, 'lxml')
-        main_list = link_soup.find('div', class_='content-panel standalone series')
-        main_list = main_list.find_all('ul', recursive=False)[1:]
-
-        for sub_list in [main_list[0]]:
-            sub_list = sub_list.find_all('li')
-
-            for scp_element in sub_list[:5]:
-                scp_element = scp_element.text
-                scp_number = ''.join([l for l in scp_element.split(' - ')[0] if l.isnumeric()])
-                scp_tag = ''.join(scp_element.split(' - ')[1:])
-                doesnt_exist_tag = '[ACCESS DENIED]'
-                if scp_tag != doesnt_exist_tag:
-                    update_scp(scp_number, arg_scp_name=scp_tag)
-
-                # delay time to make sure I don't overload their website with requests
-                sleep(global_vars.delay_time_s)
+        print(f"SCP-{scp_number} not in database!")
+    else:
+        scp.display(debug=debug)
