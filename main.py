@@ -15,7 +15,7 @@ window_name = "SCP Handler"
 # set up the tkinter root window
 root = Tk()
 root.title(window_name)
-root.iconphoto(False, PhotoImage(file="scp-logo.png"))
+root.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
 root.geometry("658x356+350+350")
 root.configure(bg="lightgrey")
 root.resizable(width=False, height=False)
@@ -43,7 +43,7 @@ exists_filter.set(1)
 
 def get_display_string(scp_number, include_link=False):
     scp = db.get_scp(scp_number)
-    output = f"{scp.number}\n{scp.name}\nObject Class: {scp.object_class}\nRating: {scp.rating}"
+    output = f"SCP-{scp.number}\n{scp.name}\nObject Class: {scp.object_class}\nRating: {scp.rating}"
     if include_link:
         output += f"\n{scp.URL}"
     return output
@@ -91,8 +91,12 @@ def update_multiple_scps_window():
         update.destroy()
         global_vars.delay_time_ms = global_vars.delay_time_ms_default
 
+    # used to filter out SCPs that are already in the database
+    only_new_filter = IntVar()
+
     # function called by the update button
     def update_multiple_scps():
+        # first try to catch invalid values in the entry fields
         try:
             if int(entry_upper_bound.get()) - int(entry_lower_bound.get()) < 1 or int(entry_lower_bound.get()) < 1:
                 messagebox.showerror("Update multiple SCPs", "Please ender a valid range.")
@@ -104,36 +108,84 @@ def update_multiple_scps_window():
             entry_upper_bound.delete(0, END)
             entry_lower_bound.delete(0, END)
             return
+
+        # store the number of requests before we update multiple
         before_request_count = global_vars.debug_requests_count
 
-        # todo add in the filtering
-        only_new_filter
+        # construct a list containing the numbers of all scps that should be updated based on the users filtering
+        # options
+        if only_new_filter.get():
+            # generator function for giving the numbers of scps that are currently in the db successively.
+            # only returns the numbers of scps that are in the database and that are ALSO within the bound specified
+            # by the user. The numbers are sorted in order.
+            def numbers_already_in_db():
+                i = 0
+                scp_nums_to_filter_out = []
+                for scp_num in db.get_available_scp_numbers():
+                    current_scp_num = scp_num.get("number")
+                    if int(entry_lower_bound.get()) <= current_scp_num <= int(entry_upper_bound.get()):
+                        scp_nums_to_filter_out.append(current_scp_num)
+                scp_nums_to_filter_out = sorted(scp_nums_to_filter_out)
+                while i < len(scp_nums_to_filter_out):
+                    yield scp_nums_to_filter_out[i]
+                    i += 1
+            # create an iterator from the generator function we just defined.
+            # loop over the range we want to update and check each number if it equals the number in the current
+            # iteration of the iterator. if it does, we advance the iterator by one and skip to the next number in
+            # the for loop. If the numbers don't match we add them to scp_numbers_to_update. This way we only append
+            # numbers to the list that are NOT in the database.
+            scp_numbers_to_update = []
+            nums_db = numbers_already_in_db()
+            try:
+                d = next(nums_db)
+            except StopIteration:
+                pass
+            for n in range(int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1):
+                if n == d:
+                    try:
+                        d = next(nums_db)
+                    except StopIteration:
+                        pass
+                else:
+                    scp_numbers_to_update.append(n)
+        # if the filter is not set then we simply update all scps in the given range (inclusive)
+        else:
+            scp_numbers_to_update = list(range(int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1))
 
-        how_many_to_update = int(entry_upper_bound.get()) - int(entry_lower_bound.get()) + 1
+        # show user the update information and ask whether they want to continue
         result = messagebox.askyesno("Update multiple SCPs",
-                                     f"Are you sure you wish to update {how_many_to_update} SCPs\n" +
+                                     f"Are you sure you wish to update {len(scp_numbers_to_update)} SCPs\n" +
                                      f"with a {global_vars.delay_time_ms} ms delay between requests?")
-        if result == 0:
+        if not result:
             return
 
-        for scp_number in range(int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1):
+        # update the scps and store the resulsts to display afterwards
+        update_results = []
+        for scp_number in scp_numbers_to_update:
             result = functions.update_scp(scp_number)
+            update_results.append(result)
             print(f"Updated {scp_number}")
+        # fetch the current request count to compare with the one taken earlier
         current_request_count = global_vars.debug_requests_count
+
+        # display the results of the update
+        number_of_scps_added = sum(r == 1 for r in update_results)
+        number_of_scps_updated = sum(r == 2 for r in update_results)
         messagebox.showinfo("Update multiple SCPs",
-                            f"Updated {int(entry_upper_bound.get())-int(entry_lower_bound.get())} SCPs successfully!\n" +
+                            "Success!\n" +
+                            f"{number_of_scps_added} SCPs added,\n" +
+                            f"{number_of_scps_updated} SCPs updated.\n" +
                             f"{current_request_count-before_request_count} requests sent.")
         update_info_var()
 
     # create the window
     update = Toplevel()
     update.title(f"Update multiple SCPs")
-    update.iconphoto(False, PhotoImage(file="scp-logo.png"))
-    update.geometry("400x500+1050+200")
+    update.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
+    update.geometry("450x500+1050+200")
     update.resizable(width=False, height=False)
+    # protocol for when window is closed: call the update_close_window function
     update.protocol("WM_DELETE_WINDOW", update_close_window)
-
-    only_new_filter = IntVar()
 
     # todo make the windows gui nicer
     # create the widgets
@@ -142,6 +194,7 @@ def update_multiple_scps_window():
     entry_lower_bound = Entry(text_frame, width=4)
     text_label2 = Label(text_frame, text="to")
     entry_upper_bound = Entry(text_frame, width=4)
+    text_label3 = Label(text_frame, text="(inclusive)")
     delay_ms_label = Label(update, text="200 ms delay\nbetween requests")
     # callback function for slider
     def update_slider(var):
@@ -159,6 +212,7 @@ def update_multiple_scps_window():
     entry_lower_bound.grid(row=0, column=1)
     text_label2.grid(row=0, column=2)
     entry_upper_bound.grid(row=0, column=3)
+    text_label3.grid(row=0, column=4)
     delay_ms_label.grid(row=1, column=0)
     delay_slider.grid(row=1, column=1)
     update_button.grid(row=0, column=1)
@@ -175,6 +229,8 @@ def set_current_scp(scp_number):
     global have_read
     global dont_want_to_read
     global read_later
+
+    str_number = functions.reformat_SCP_num(scp_number)
 
     # this block handles the case of a random search turning up empty, thus calling this function with an
     # argument of -1
@@ -200,9 +256,9 @@ def set_current_scp(scp_number):
     # destroy and redraw the info in scp_display_frame
     scp_label.destroy()
     if scp == -1:
-        scp_label = Label(scp_display_frame, text="SCP not in database!", justify=LEFT)
+        scp_label = Label(scp_display_frame, text=f"SCP-{str_number} not in database!", justify=LEFT)
     elif scp.exists == False:
-        scp_label = Label(scp_display_frame, text=f"{scp_number} - doesn't exist yet!", justify=LEFT)
+        scp_label = Label(scp_display_frame, text=f"SCP-{str_number} doesn't exist yet!", justify=LEFT)
     else:
         text = get_display_string(scp.number)
         scp_label = Label(scp_display_frame, text=text, justify=LEFT)
@@ -316,13 +372,13 @@ def show_top_x(highest_rank_index, lowest_rank_index):
     except TclError:
         top = Toplevel()
         top.title(f"Top SCPs")
-        top.iconphoto(False, PhotoImage(file="scp-logo.png"))
+        top.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
         top.geometry("400x500+950+200")
         top.resizable(width=False, height=False)
     except NameError:
         top = Toplevel()
         top.title(f"Top SCPs")
-        top.iconphoto(False, PhotoImage(file="scp-logo.png"))
+        top.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
         top.geometry("400x500+1050+200")
         top.resizable(width=False, height=False)
 

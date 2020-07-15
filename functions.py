@@ -48,12 +48,11 @@ def get_scp_series_links():
     return scp_series_links
 
 
-# todo this function currently seems to fail on low scp numbers (001-002) for example, try to fix it. This is probably because of leading 0s, might be reformat_SCP_num
 def update_scp(scp_number):
     # This functions scrapes the wiki to find all desired data about the SCP under the given scp_number.
     # It does this piece by piece and then adds all the data to the database if the SCP exists
     str_number = reformat_SCP_num(scp_number)
-    scp_link = f'http://www.scp-wiki.net/scp-{scp_number}'
+    scp_link = f'http://www.scp-wiki.net/scp-{str_number}'
     # sleep before every request to avoid spamming the server with requests
     if global_vars.sleep_brake:
         sleep(global_vars.delay_time_ms / 1000)
@@ -103,8 +102,16 @@ def update_scp(scp_number):
     scp_list_index = int(str_number[-2:])
     main_list_index = int(str_number[-3])
     series_soup = BeautifulSoup(series_source.text, 'lxml')
-    scp_names_sublist = series_soup.find('div', class_='content-panel standalone series').select('ul')[main_list_index + 1].find_all('li')
-    name = ' - '.join(scp_names_sublist[scp_list_index].text.split(" - ")[1:])
+    scp_names_sublist = series_soup.find('div', class_='content-panel standalone series').select('ul')[
+        main_list_index + 1].find_all('li')
+    # this offset is used to find the correct place on the html where the name is listed
+    offset = 0
+    if int(str_number) < 100:
+        # usually the scps least significant digit starts counting at 0 in each grouping, however for the first grouping
+        # (001-099), the least significat digit starts at 1, so we must account for this in our offset to find
+        # the correct name
+        offset = -1
+    name = ' - '.join(scp_names_sublist[scp_list_index + offset].text.split(" - ")[1:])
 
     page_content = soup.find('div', id='page-content')
 

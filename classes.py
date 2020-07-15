@@ -1,7 +1,6 @@
 class SCP:
     def __init__(self, number, name, object_class, rating, URL, has_image, have_read=0, dont_want_to_read=0, exists=1,
                  is_favorite=0, unusual_format=0, last_updated="Never", read_later=False):
-        self.number = number
         self.name = name
         self.object_class = object_class
         self.rating = rating
@@ -14,6 +13,11 @@ class SCP:
         self.unusal_format = unusual_format
         self.last_updated = last_updated
         self.read_later = read_later
+
+        str_number = str(number)
+        while (len(str_number)) < 3:
+            str_number = '0' + str_number
+        self.number = str_number
 
     def display(self, debug=False):
         print('Number:', self.number)
@@ -50,3 +54,4 @@ class SCP:
 
     def __repr__(self):
         return "{} - {}\n{}\n".format(self.number, self.name, self.URL)
+
