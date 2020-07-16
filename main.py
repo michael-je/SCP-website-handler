@@ -8,8 +8,7 @@ import global_vars
 
 # todo maybe add a notes feature
 
-# create the database
-# db.set_up_database()
+background_color = "lightgrey"
 
 window_name = "SCP Handler"
 # set up the tkinter root window
@@ -17,7 +16,7 @@ root = Tk()
 root.title(window_name)
 root.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
 root.geometry("658x356+350+350")
-root.configure(bg="lightgrey")
+root.configure(bg=background_color)
 root.resizable(width=False, height=False)
 
 
@@ -182,42 +181,54 @@ def update_multiple_scps_window():
     update = Toplevel()
     update.title(f"Update multiple SCPs")
     update.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
-    update.geometry("450x500+1050+200")
+    update.geometry("350x234+1020+350")
     update.resizable(width=False, height=False)
+    update.configure(bg=background_color)
     # protocol for when window is closed: call the update_close_window function
     update.protocol("WM_DELETE_WINDOW", update_close_window)
 
-    # todo make the windows gui nicer
     # create the widgets
-    text_frame = LabelFrame(update, bd=0)
+    text_frame = LabelFrame(update, bd=2)
     text_label1 = Label(text_frame, text="Update SCPs from")
     entry_lower_bound = Entry(text_frame, width=4)
     text_label2 = Label(text_frame, text="to")
     entry_upper_bound = Entry(text_frame, width=4)
     text_label3 = Label(text_frame, text="(inclusive)")
-    delay_ms_label = Label(update, text="200 ms delay\nbetween requests")
+
+    delay_frame = LabelFrame(update, bd=2)
+    delay_ms_label = Label(delay_frame, text="200 ms delay\nbetween requests")
     # callback function for slider
     def update_slider(var):
         global_vars.delay_time_ms = int(var)
         delay_ms_label.configure(text=f"{global_vars.delay_time_ms}ms delay\nbetween requests")
-    delay_slider = Scale(update, from_=200, to=2000, command=update_slider, showvalue=0, orient=HORIZONTAL)
-    update_button = Button(update, text="Update SCPs", command=update_multiple_scps)
-    only_new_filter_checkbox = Checkbutton(update, text="Only check for SCPS\nnot currently in database",
+    delay_slider = Scale(delay_frame, from_=200, to=5000, command=update_slider, showvalue=0, orient=HORIZONTAL,
+                         length=158)
+
+    update_frame = LabelFrame(update, bd=2)
+    only_new_filter_checkbox = Checkbutton(update_frame, text="Only check for SCPS\nnot currently in database",
                                            variable=only_new_filter, onvalue=1, offvalue=0)
-    close_window_button = Button(update, text="Close Window", command=update_close_window)
+    update_button = Button(update_frame, text="Update SCPs", command=update_multiple_scps)
+
+    close_window_button = Button(update, text="Close Window", command=update_close_window, height=2, width=36)
 
     # place the widgets
-    text_frame.grid(row=0, column=0)
-    text_label1.grid(row=0, column=0)
-    entry_lower_bound.grid(row=0, column=1)
-    text_label2.grid(row=0, column=2)
-    entry_upper_bound.grid(row=0, column=3)
-    text_label3.grid(row=0, column=4)
-    delay_ms_label.grid(row=1, column=0)
-    delay_slider.grid(row=1, column=1)
-    update_button.grid(row=0, column=1)
-    close_window_button.grid(row=2, column=0)
-    only_new_filter_checkbox.grid(row=3, column=0)
+    text_frame.grid(row=0, column=0, padx=10, pady=(10, 5), sticky=W)
+    text_label1.grid(row=0, column=0, pady=5)
+    entry_lower_bound.grid(row=0, column=1, pady=5)
+    text_label2.grid(row=0, column=2, pady=5)
+    entry_upper_bound.grid(row=0, column=3, pady=5)
+    text_label3.grid(row=0, column=4, pady=5)
+
+    delay_frame.grid(row=1, column=0, padx=10, pady=5, sticky=W)
+    delay_ms_label.grid(row=0, column=0, padx=10, pady=5)
+    delay_slider.grid(row=0, column=1, padx=10, pady=5)
+
+    update_frame.grid(row=2, column=0, padx=10, pady=5, sticky=W)
+    only_new_filter_checkbox.grid(row=0, column=0, padx=10, pady=5)
+    update_button.grid(row=0, column=1, padx=(10, 12), pady=5)
+
+    close_window_button.grid(row=3, column=0, padx=10, pady=5, sticky=W)
+
 
 
 # function to set current SCP and display it in the scp_display_frame based on its number
@@ -295,19 +306,6 @@ def find_scp():
     set_current_scp(scp_number)
 
 
-# function to display all info for current_scp
-def show_debug_info():
-    global debug_label
-    global current_scp
-
-    if current_scp == -1:
-        return
-    info = current_scp.debug_info()
-    text = "\n".join(str(i) for i in info)
-    debug_label = Label(root, text=text)
-    debug_label.pack()
-
-
 # displays a random SCP from the database
 def find_random_scp():
     scp = functions.get_random_scp(not_read_yet=have_read_filter.get(), want_to_read=dont_want_to_read_filter.get(),
@@ -373,13 +371,13 @@ def show_top_x(highest_rank_index, lowest_rank_index):
         top = Toplevel()
         top.title(f"Top SCPs")
         top.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
-        top.geometry("400x500+950+200")
+        top.geometry("399x500+950+300")
         top.resizable(width=False, height=False)
     except NameError:
         top = Toplevel()
         top.title(f"Top SCPs")
         top.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
-        top.geometry("400x500+1050+200")
+        top.geometry("399x500+950+300")
         top.resizable(width=False, height=False)
 
     # filter search based on checkboxes
@@ -511,8 +509,6 @@ update_multiple_button = Button(side_frame, text="Update\nmultiple SCps", comman
 quit_button = Button(side_frame, text="Quit", command=root.quit,
                      width=15, height=3)
 
-# debug_button = Button(root, text="debug info", command=show_debug_info)
-
 # place widgets
 scp_display_frame.grid(row=0, column=0, columnspan=4, ipadx=170, padx=10, pady=10)
 favorite_checkbox.grid(row=1, column=0, sticky=W, padx=(10, 5))
@@ -540,6 +536,5 @@ info_label_scp_count.grid(row=2, column=0, padx=10, pady=12)
 update_multiple_button.grid(row=3, column=0, padx=10, pady=12)
 quit_button.grid(row=4, column=0, padx=10, pady=(12, 11))
 
-# debug_button.pack()
 
 root.mainloop()
