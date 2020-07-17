@@ -6,7 +6,8 @@ import functions
 from classes import SCP
 import global_vars
 
-# todo maybe add a notes feature
+# todo feature: maybe add a notes feature
+# todo feature: add scrollable list of SCPS along with some flags, much like the table is stored
 
 background_color = "lightgrey"
 
@@ -137,8 +138,10 @@ def update_multiple_scps_window():
             nums_db = numbers_already_in_db()
             try:
                 d = next(nums_db)
+            # this executes if scp_nums_to_filter_out is an empty list, we set d=0 so that we don't get an error when
+            # referencing d later. no scp has the number 0 so this will not filter out anything
             except StopIteration:
-                pass
+                d = 0
             for n in range(int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1):
                 if n == d:
                     try:
@@ -163,7 +166,7 @@ def update_multiple_scps_window():
         for scp_number in scp_numbers_to_update:
             result = functions.update_scp(scp_number)
             update_results.append(result)
-            print(f"Updated {scp_number}")
+            print(f"Updated SCP-{scp_number}")
         # fetch the current request count to compare with the one taken earlier
         current_request_count = global_vars.debug_requests_count
 
@@ -426,10 +429,14 @@ def show_top_x(highest_rank_index, lowest_rank_index):
         new_frame = LabelFrame(main_frame, height=87, width=400, bd=1)
         new_frame.grid_propagate(0)
         new_rank_label = Label(new_frame, text="# " + str(highest_rank_index+i+1))
-        # todo fix the pointer issue here
-        # https://help.semmle.com/wiki/display/PYTHON/Loop+variable+capture
+        # create a high-class function so that the callback function sends the user to the correct link when the button
+        # is pressed later. If we simply used a variable here then the variable would be overwritten during later loop
+        # iterations and thus every button would send the user to the same page. This way we can keep the scp_number
+        # within the scope of the higher function so that it is stored until the callback function is called.
+        def higher_function(var):
+            return lambda: functions.go_to_scp_page(var)
         new_browser_button = Button(new_frame, text="Open in\nBrowser",
-                            command=lambda: functions.go_to_scp_page(scp_number),
+                            command=higher_function(scp_number),
                             height=2, width=7)
         new_label = Label(new_frame, text=text, justify=LEFT)
 
