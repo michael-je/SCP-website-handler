@@ -6,16 +6,21 @@ import functions
 from classes import SCP
 import global_vars
 
+# todo change: Top SCPs button to just dispaly multiple and add a checbox to sort them in order of highest rating
 # todo feature: maybe add a notes feature
 # todo feature: add scrollable list of SCPS along with some flags, much like the table is stored
 
 background_color = "lightgrey"
+logo_path = "scp-logo.png"
 
 window_name = "SCP Handler"
 # set up the tkinter root window
 root = Tk()
 root.title(window_name)
-root.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
+try:
+    root.iconphoto(False, PhotoImage(file=logo_path))
+except TclError:
+    pass
 root.geometry("658x356+350+350")
 root.configure(bg=background_color)
 root.resizable(width=False, height=False)
@@ -183,7 +188,10 @@ def update_multiple_scps_window():
     # create the window
     update = Toplevel()
     update.title(f"Update multiple SCPs")
-    update.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
+    try:
+        update.iconphoto(False, PhotoImage(file=logo_path))
+    except TclError:
+        pass
     update.geometry("350x234+1020+350")
     update.resizable(width=False, height=False)
     update.configure(bg=background_color)
@@ -208,7 +216,7 @@ def update_multiple_scps_window():
                          length=158)
 
     update_frame = LabelFrame(update, bd=2)
-    only_new_filter_checkbox = Checkbutton(update_frame, text="Only check for SCPS\nnot currently in database",
+    only_new_filter_checkbox = Checkbutton(update_frame, text="Only check for SCPs\nnot currently in database",
                                            variable=only_new_filter, onvalue=1, offvalue=0)
     update_button = Button(update_frame, text="Update SCPs", command=update_multiple_scps)
 
@@ -373,13 +381,19 @@ def show_top_x(highest_rank_index, lowest_rank_index):
     except TclError:
         top = Toplevel()
         top.title(f"Top SCPs")
-        top.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
+        try:
+            top.iconphoto(False, PhotoImage(file=logo_path))
+        except TclError:
+            pass
         top.geometry("399x500+950+300")
         top.resizable(width=False, height=False)
     except NameError:
         top = Toplevel()
         top.title(f"Top SCPs")
-        top.iconphoto(False, PhotoImage(file="/Users/michael/PycharmProjects/SCP_website_handler/scp-logo.png"))
+        try:
+            top.iconphoto(False, PhotoImage(file=logo_path))
+        except TclError:
+            pass
         top.geometry("399x500+950+300")
         top.resizable(width=False, height=False)
 
@@ -426,8 +440,7 @@ def show_top_x(highest_rank_index, lowest_rank_index):
         text = get_display_string(scp_number)
 
 
-        new_frame = LabelFrame(main_frame, height=87, width=400, bd=1)
-        new_frame.grid_propagate(0)
+        new_frame = LabelFrame(main_frame, bd=0)
         new_rank_label = Label(new_frame, text="# " + str(highest_rank_index+i+1))
         # create a high-class function so that the callback function sends the user to the correct link when the button
         # is pressed later. If we simply used a variable here then the variable would be overwritten during later loop
@@ -435,13 +448,14 @@ def show_top_x(highest_rank_index, lowest_rank_index):
         # within the scope of the higher function so that it is stored until the callback function is called.
         def higher_function(var):
             return lambda: functions.go_to_scp_page(var)
+
         new_browser_button = Button(new_frame, text="Open in\nBrowser",
                             command=higher_function(scp_number),
                             height=2, width=7)
         new_label = Label(new_frame, text=text, justify=LEFT)
 
         new_frame.grid(row=i, column=0, columnspan=3, padx=0, pady=0, sticky=W)
-        new_rank_label.grid(row=0, column=0)
+        new_rank_label.grid(row=0, column=0, pady=(2, 0))
         new_browser_button.grid(row=1, column=0, padx=10, sticky=N)
         new_label.grid(row=0, column=1, rowspan=2, padx=(0, 10), pady=5, sticky=W)
     # draw buttons for the bottom of the frame

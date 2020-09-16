@@ -6,10 +6,12 @@ from datetime import datetime
 
 from classes import SCP
 
+db_path = "scps.db"
+
 
 # create a function that creates the scp table in the database, only run this once
 def set_up_database():
-    conn = sqlite3.connect("/Users/michael/PycharmProjects/SCP_website_handler/scps.db")
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     # take note that booleans should be stored as integer values 1 or 0
@@ -39,7 +41,7 @@ def set_up_database():
 # create a function that updates an scp in the database
 def update_scp(scp):
     # takes an SCP class as input
-    conn = sqlite3.connect("/Users/michael/PycharmProjects/SCP_website_handler/scps.db")
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     # get the current day and store it in the format "DD-MM-YYYY"
@@ -87,7 +89,7 @@ def update_scp(scp):
 
 # create a function which returns the data for a given scp number
 def get_scp(scp_id_number):
-    conn = sqlite3.connect("/Users/michael/PycharmProjects/SCP_website_handler/scps.db")
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     try:
@@ -121,7 +123,7 @@ def get_scp(scp_id_number):
 
 # create function to add an scp to the database
 def add_scp(scp):
-    conn = sqlite3.connect("/Users/michael/PycharmProjects/SCP_website_handler/scps.db")
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     # get the current day and store it in the format "DD-MM-YYYY"
@@ -165,7 +167,7 @@ def add_scp(scp):
 #   additional_data=["have_read", "dont_want_to_read"]
 # this function returns the data for each scp as a dict
 def get_available_scp_numbers(additional_data=[]):
-    conn = sqlite3.connect("/Users/michael/PycharmProjects/SCP_website_handler/scps.db")
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     additional_data_string = ", ".join(additional_data)

@@ -11,6 +11,9 @@ import db
 import global_vars
 
 
+# 1200, 173
+
+
 def debug_display_requests_count():
     # prints out how many times the code has sent a request to the wiki since it started running
     # counters are stored in global_vars
@@ -36,7 +39,7 @@ def get_scp_series_links():
     main_source = requests.get(homepage_URL, headers=headers)               # request
     global_vars.debug_requests_count += 1
     main_soup = BeautifulSoup(main_source.text, 'lxml')
-    scp_series_menu = main_soup.find_all('div', class_='menu-item')[2]
+    scp_series_menu = main_soup.find_all('div', class_='menu-item')[1]
     scp_series_anchors = scp_series_menu.find_all('a')
 
     scp_series_links = []
@@ -172,7 +175,8 @@ def update_scp(scp_number):
 
 def go_to_scp_page(scp_number):
     # opens the SCP webpage in a webbrowser
-    URL = homepage_URL + 'scp-' + str(scp_number)
+    str_number = reformat_SCP_num(scp_number)
+    URL = homepage_URL + 'scp-' + str_number
     wp_open(URL, new=2)
 
 
