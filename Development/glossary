@@ -1,7 +1,0 @@
-Remember that pickle doesn't actually store information about how a class/object is constructed,
-and needs access to the class when unpickling. See wiki on using Pickle for more details.
-    https://stackoverflow.com/questions/27732354/unable-to-load-files-using-pickle-and-multiple-modules
-
-use the recursive=False argument in bs4's find_all() to only search for DIRECT children.
-
-what's the difference between select() and find_all in bs4?
