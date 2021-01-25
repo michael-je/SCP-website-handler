@@ -3,10 +3,11 @@
 # scp.number -> id_number and scp.exists -> exists_online in this file because number & exists are keywords in sqlite3
 import sqlite3
 from datetime import datetime
+from os import path
 
 from classes import SCP
 
-db_path = "scps.db"
+db_path = path.dirname(path.realpath(__file__)) + "/scps.db"
 
 
 # create a function that creates the scp table in the database, only run this once
