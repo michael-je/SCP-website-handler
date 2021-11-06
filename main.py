@@ -3,12 +3,14 @@ from tkinter import messagebox
 
 import db
 import functions
-from classes import SCP
+from scp import SCP
 import global_vars
+import cfg
+import scraper
 
-# todo change: Top SCPs button to just dispaly multiple and add a checbox to sort them in order of highest rating
-# todo feature: maybe add a notes feature
-# todo feature: add scrollable list of SCPS along with some flags, much like the table is stored
+
+ORM = db.SCPDatabase(cfg.DB_NAME)
+scraper = scraper.WikiScraper()
 
 background_color = "lightgrey"
 logo_path = "scp-logo.png"
@@ -47,37 +49,43 @@ exists_filter.set(1)
 
 
 def get_display_string(scp_number, include_link=False):
-    scp = db.get_scp(scp_number)
-    output = f"SCP-{scp.number}\n{scp.name}\nObject Class: {scp.object_class}\nRating: {scp.rating}"
+    """
+    Receives an scp number and returns a string with formatted information about
+    the scp. This string is intended to be displayed to the user.
+    """
+    scp = ORM.get_scp(scp_number)
+    output = (
+        f"SCP-{scp.number}\n{scp.name}\nObject Class: " +
+        f"{scp.object_class}\nRating: {scp.rating}"
+    )
     if include_link:
         output += f"\n{scp.URL}"
     return output
 
-
-# function to update the database with current information from the gui
 def update_current_scp():
+    """
+    Update the database with the information which is currently in the gui.
+    """
     global current_scp
     global is_favorite
     global have_read
     global dont_want_to_read
 
-    # first check whether current_scp is a valid SCP object or an integer of value -1 (representing an error)
+    # first check whether current_scp is a valid SCP object
+    # or an integer of value -1 (representing an error).
     if current_scp == -1:
         return
 
-    f = is_favorite.get()
-    r = have_read.get()
-    w = dont_want_to_read.get()
-    l = read_later.get()
-    current_scp.is_favorite = f
-    current_scp.have_read = r
-    current_scp.dont_want_to_read = w
-    current_scp.read_later = l
-    db.update_scp(current_scp)
+    current_scp.is_favorite = is_favorite.get()
+    current_scp.have_read = have_read.get()
+    current_scp.dont_want_to_read = dont_want_to_read.get()
+    current_scp.read_later = read_later.get()
+    ORM.update_scp(current_scp)
 
-
-# used to update multiple SCPs at once
 def update_multiple_scps_window():
+    """
+    Update multiple SCPs at once.
+    """
     global update
 
     global_vars.delay_time_ms = 200
@@ -94,7 +102,7 @@ def update_multiple_scps_window():
     # function to close the update window, also resets the delay time
     def update_close_window():
         update.destroy()
-        global_vars.delay_time_ms = global_vars.delay_time_ms_default
+        global_vars.delay_time_ms = cfg.DELAY_TIME_MS_DEFAULT
 
     # used to filter out SCPs that are already in the database
     only_new_filter = IntVar()
@@ -103,8 +111,13 @@ def update_multiple_scps_window():
     def update_multiple_scps():
         # first try to catch invalid values in the entry fields
         try:
-            if int(entry_upper_bound.get()) - int(entry_lower_bound.get()) < 1 or int(entry_lower_bound.get()) < 1:
-                messagebox.showerror("Update multiple SCPs", "Please ender a valid range.")
+            if (
+                int(entry_upper_bound.get()) - int(entry_lower_bound.get()) < 1
+                or int(entry_lower_bound.get()) < 1
+            ):
+                messagebox.showerror(
+                    "Update multiple SCPs", "Please ender a valid range."
+                )
                 entry_upper_bound.delete(0, END)
                 entry_lower_bound.delete(0, END)
                 return
@@ -115,39 +128,48 @@ def update_multiple_scps_window():
             return
 
         # store the number of requests before we update multiple
-        before_request_count = global_vars.debug_requests_count
+        before_request_count = global_vars.requests_count
 
-        # construct a list containing the numbers of all scps that should be updated based on the users filtering
-        # options
+        # construct a list containing the numbers of all scps that should be updated 
+        # based on the users filtering options.
         if only_new_filter.get():
-            # generator function for giving the numbers of scps that are currently in the db successively.
-            # only returns the numbers of scps that are in the database and that are ALSO within the bound specified
-            # by the user. The numbers are sorted in order.
+            # Generator function for giving the numbers of scps that are currently in 
+            # the db successively. Only returns the numbers of scps that are in the 
+            # database and that are ALSO within the bound specified by the user. 
+            # The numbers are sorted in order.
             def numbers_already_in_db():
                 i = 0
                 scp_nums_to_filter_out = []
-                for scp_num in db.get_available_scp_numbers():
+                for scp_num in ORM.get_available_scp_numbers():
                     current_scp_num = scp_num.get("number")
-                    if int(entry_lower_bound.get()) <= current_scp_num <= int(entry_upper_bound.get()):
+                    if (
+                        int(entry_lower_bound.get())
+                        <= current_scp_num
+                        <= int(entry_upper_bound.get())
+                    ):
                         scp_nums_to_filter_out.append(current_scp_num)
                 scp_nums_to_filter_out = sorted(scp_nums_to_filter_out)
                 while i < len(scp_nums_to_filter_out):
                     yield scp_nums_to_filter_out[i]
                     i += 1
-            # create an iterator from the generator function we just defined.
-            # loop over the range we want to update and check each number if it equals the number in the current
-            # iteration of the iterator. if it does, we advance the iterator by one and skip to the next number in
-            # the for loop. If the numbers don't match we add them to scp_numbers_to_update. This way we only append
-            # numbers to the list that are NOT in the database.
+            # Create an iterator from the generator function we just defined.
+            # Loop over the range we want to update and check each number if it equals 
+            # the number in the current iteration of the iterator. if it does, we 
+            # advance the iterator by one and skip to the next number in the for loop. 
+            # If the numbers don't match we add them to scp_numbers_to_update. This way 
+            # we only append numbers to the list that are NOT in the database.
             scp_numbers_to_update = []
             nums_db = numbers_already_in_db()
             try:
                 d = next(nums_db)
-            # this executes if scp_nums_to_filter_out is an empty list, we set d=0 so that we don't get an error when
-            # referencing d later. no scp has the number 0 so this will not filter out anything
+            # This executes if scp_nums_to_filter_out is an empty list, 
+            # we set d=0 so that we don't get an error when referencing d later.
+            # No scp has the number 0 so this will not filter out anything.
             except StopIteration:
                 d = 0
-            for n in range(int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1):
+            for n in range(
+                    int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1
+            ):
                 if n == d:
                     try:
                         d = next(nums_db)
@@ -155,14 +177,21 @@ def update_multiple_scps_window():
                         pass
                 else:
                     scp_numbers_to_update.append(n)
-        # if the filter is not set then we simply update all scps in the given range (inclusive)
+        # If the filter is not set then we simply update all scps in the 
+        # given range (inclusive).
         else:
-            scp_numbers_to_update = list(range(int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1))
+            scp_numbers_to_update = list(
+                range(
+                    int(entry_lower_bound.get()), int(entry_upper_bound.get()) + 1
+                )
+            )
 
         # show user the update information and ask whether they want to continue
-        result = messagebox.askyesno("Update multiple SCPs",
-                                     f"Are you sure you wish to update {len(scp_numbers_to_update)} SCPs\n" +
-                                     f"with a {global_vars.delay_time_ms} ms delay between requests?")
+        result = messagebox.askyesno(
+            "Update multiple SCPs",
+            "Are you sure you wish to update {len(scp_numbers_to_update)} SCPs\n" +
+            "with a {global_vars.delay_time_ms} ms delay between requests?"
+        )
         if not result:
             return
 
@@ -173,16 +202,18 @@ def update_multiple_scps_window():
             update_results.append(result)
             print(f"Updated SCP-{scp_number}")
         # fetch the current request count to compare with the one taken earlier
-        current_request_count = global_vars.debug_requests_count
+        current_request_count = global_vars.requests_count
 
         # display the results of the update
         number_of_scps_added = sum(r == 1 for r in update_results)
         number_of_scps_updated = sum(r == 2 for r in update_results)
-        messagebox.showinfo("Update multiple SCPs",
-                            "Success!\n" +
-                            f"{number_of_scps_added} SCPs added,\n" +
-                            f"{number_of_scps_updated} SCPs updated.\n" +
-                            f"{current_request_count-before_request_count} requests sent.")
+        messagebox.showinfo(
+            "Update multiple SCPs",
+            "Success!\n" +
+            f"{number_of_scps_added} SCPs added,\n" +
+            f"{number_of_scps_updated} SCPs updated.\n" +
+            f"{current_request_count-before_request_count} requests sent."
+        )
         update_info_var()
 
     # create the window
@@ -211,16 +242,34 @@ def update_multiple_scps_window():
     # callback function for slider
     def update_slider(var):
         global_vars.delay_time_ms = int(var)
-        delay_ms_label.configure(text=f"{global_vars.delay_time_ms}ms delay\nbetween requests")
-    delay_slider = Scale(delay_frame, from_=200, to=5000, command=update_slider, showvalue=0, orient=HORIZONTAL,
-                         length=158)
+        delay_ms_label.configure(
+            text=f"{global_vars.delay_time_ms}ms delay\nbetween requests"
+        )
+    delay_slider = Scale(
+        delay_frame,
+        from_=200,
+        to=5000,
+        command=update_slider,
+        showvalue=0,
+        orient=HORIZONTAL,
+        length=158
+    )
 
     update_frame = LabelFrame(update, bd=2)
-    only_new_filter_checkbox = Checkbutton(update_frame, text="Only check for SCPs\nnot currently in database",
-                                           variable=only_new_filter, onvalue=1, offvalue=0)
-    update_button = Button(update_frame, text="Update SCPs", command=update_multiple_scps)
+    only_new_filter_checkbox = Checkbutton(
+        update_frame,
+        text="Only check for SCPs\nnot currently in database",
+        variable=only_new_filter,
+        onvalue=1,
+        offvalue=0
+    )
+    update_button = Button(
+        update_frame, text="Update SCPs", command=update_multiple_scps
+    )
 
-    close_window_button = Button(update, text="Close Window", command=update_close_window, height=2, width=36)
+    close_window_button = Button(
+        update, text="Close Window", command=update_close_window, height=2, width=36
+    )
 
     # place the widgets
     text_frame.grid(row=0, column=0, padx=10, pady=(10, 5), sticky=W)
@@ -240,10 +289,10 @@ def update_multiple_scps_window():
 
     close_window_button.grid(row=3, column=0, padx=10, pady=5, sticky=W)
 
-
-
-# function to set current SCP and display it in the scp_display_frame based on its number
 def set_current_scp(scp_number):
+    """
+    Sets current_scp and displays it in the scp_display_frame (based on its number - ?)
+    """
     global scp_display_frame
     global scp_label
     global current_scp
@@ -252,45 +301,52 @@ def set_current_scp(scp_number):
     global dont_want_to_read
     global read_later
 
-    str_number = functions.reformat_SCP_num(scp_number)
+    str_number = scraper.reformat_scp_num(scp_number)
 
-    # this block handles the case of a random search turning up empty, thus calling this function with an
-    # argument of -1
+    # This block handles the case of a random search turning up empty,
+    # thus calling this function with an argument of -1.
     if scp_number == -1:
         current_scp = -1
         scp_label.destroy()
-        scp_label = Label(scp_display_frame, text="No SCP found for given criteria", justify=LEFT)
+        scp_label = Label(
+            scp_display_frame, text="No SCP found for given criteria", justify=LEFT
+        )
         scp_label.grid(row=0, column=0, sticky=W)
         return
 
-    # setup an scp class with current scp
-    scp = db.get_scp(scp_number)
+    # Set up an scp class with current scp.
+    scp = ORM.get_scp(scp_number)
     current_scp = scp
 
-    # set checkbox variables to reflect state of current_scp
-    # first check whether current_scp is a valid SCP object or simply an int of value -1 (representing an error)
+    # Set checkbox variables to reflect state of current_scp.
+    # First check whether current_scp is a valid SCP object or 
+    # simply an int of value -1 (representing an error).
     if scp != -1:
         is_favorite.set(scp.is_favorite)
         have_read.set(scp.have_read)
         dont_want_to_read.set(scp.dont_want_to_read)
         read_later.set(scp.read_later)
 
-    # destroy and redraw the info in scp_display_frame
+    # Destroy and redraw the info in scp_display_frame.
     scp_label.destroy()
     if scp == -1:
-        scp_label = Label(scp_display_frame, text=f"SCP-{str_number} not in database!", justify=LEFT)
+        scp_label = Label(
+            scp_display_frame, text=f"SCP-{str_number} not in database!", justify=LEFT
+        )
     elif scp.exists == False:
-        scp_label = Label(scp_display_frame, text=f"SCP-{str_number} doesn't exist yet!", justify=LEFT)
+        scp_label = Label(
+            scp_display_frame, text=f"SCP-{str_number} doesn't exist yet!", justify=LEFT
+        )
     else:
         text = get_display_string(scp.number)
         scp_label = Label(scp_display_frame, text=text, justify=LEFT)
     scp_label.grid(row=0, column=0, sticky=W)
 
-
-# function that returns codes based on the user input
-# 1 = valid input
-# -1 = invalid input format
 def sanitize_input(input):
+    """
+    Returns codes based on user input.
+    1 means that the input format is valid, -1 means invalid.
+    """
     if not input:
         return -1
     try:
@@ -303,9 +359,11 @@ def sanitize_input(input):
         return -1
     return 1
 
-
-# used by find_scp_button to put an scp on the screen based on what is in the entry field
 def find_scp():
+    """
+    Used by find_scp_button to put an scp on the screen based on
+    what is in the entry field. (?)
+    """
     global entry_field
 
     scp_number = entry_field.get()
@@ -316,29 +374,38 @@ def find_scp():
         return
     set_current_scp(scp_number)
 
-
-# displays a random SCP from the database
 def find_random_scp():
-    scp = functions.get_random_scp(not_read_yet=have_read_filter.get(), want_to_read=dont_want_to_read_filter.get(),
-                                   does_exist=exists_filter.get(), is_favorite=is_favorite_filter.get(),
-                                   read_later=read_later_filter.get())
+    """
+    Displays a random SCP from the database.
+    """
+    scp = functions.get_random_scp(
+        not_read_yet=have_read_filter.get(),
+        want_to_read=dont_want_to_read_filter.get(),
+        does_exist=exists_filter.get(),
+        is_favorite=is_favorite_filter.get(),
+        read_later=read_later_filter.get()
+    )
     if scp == -1:
         set_current_scp(-1)
     else:
         set_current_scp(scp.number)
 
-
 def open_scp_in_browser():
+    """
+    Opens current_scp in a browser
+    """
     global current_scp
 
-    # in the case that no valid scp is currently being shown
     if current_scp == -1:
         return
-    functions.go_to_scp_page(current_scp.number)
 
+    scraper.go_to_scp_page(current_scp.number)
 
-# function that takes the scp_number from the entry field and adds/updates that SCP in the database
 def add_update_database():
+    """
+    Takes the scp_number from the entry field and adds/updates
+    the corresponding SCP in the database.
+    """
     global num_scps_in_db
 
     scp_number = entry_field.get()
@@ -359,17 +426,21 @@ def add_update_database():
 
     update_info_var()
 
-
 def top_rated_sort(scp_dict):
+    """
+    Given a dictionary of scp instances, sorts the dict
+    based on "rating" and returns it.
+    """
     try:
         return int(scp_dict.get("rating"))
     except ValueError:
         pass
 
-
-# function that shows the top 10 SCPs burrently in the database, this can be displayed in a
-# seperate window
 def show_top_x(highest_rank_index, lowest_rank_index):
+    """
+    Shows the top 10 SCPs currently in the database.
+    This can be displayed in a seperate window.
+    """
     global top
     global main_frame
 
@@ -408,7 +479,7 @@ def show_top_x(highest_rank_index, lowest_rank_index):
     if read_later_filter.get():
         extra_filters.append("read_later")
 
-    scps = db.get_available_scp_numbers(["rating"] + extra_filters)
+    scps = ORM.get_available_scp_numbers(["rating"] + extra_filters)
 
     filtered_scps = []
     for scp in scps:
@@ -442,16 +513,22 @@ def show_top_x(highest_rank_index, lowest_rank_index):
 
         new_frame = LabelFrame(main_frame, bd=0)
         new_rank_label = Label(new_frame, text="# " + str(highest_rank_index+i+1))
-        # create a high-class function so that the callback function sends the user to the correct link when the button
-        # is pressed later. If we simply used a variable here then the variable would be overwritten during later loop
-        # iterations and thus every button would send the user to the same page. This way we can keep the scp_number
-        # within the scope of the higher function so that it is stored until the callback function is called.
+        # create a high-class function so that the callback function sends the user 
+        # to the correct link when the button is pressed later. If we simply used a 
+        # variable here then the variable would be overwritten during later loop
+        # iterations and thus every button would send the user to the same page. 
+        # This way we can keep the scp_number within the scope of the higher function 
+        # so that it is stored until the callback function is called.
         def higher_function(var):
-            return lambda: functions.go_to_scp_page(var)
+            return lambda: scraper.go_to_scp_page(var)
 
-        new_browser_button = Button(new_frame, text="Open in\nBrowser",
-                            command=higher_function(scp_number),
-                            height=2, width=7)
+        new_browser_button = Button(
+            new_frame,
+            text="Open in\nBrowser",
+            command=higher_function(scp_number),
+            height=2,
+            width=7
+        )
         new_label = Label(new_frame, text=text, justify=LEFT)
 
         new_frame.grid(row=i, column=0, columnspan=3, padx=0, pady=0, sticky=W)
@@ -460,27 +537,53 @@ def show_top_x(highest_rank_index, lowest_rank_index):
         new_label.grid(row=0, column=1, rowspan=2, padx=(0, 10), pady=5, sticky=W)
     # draw buttons for the bottom of the frame
     close_button = Button(top, text="Close Window", command=top.destroy, width=20)
-    previous_button = Button(top, text="<<",
-                         command=lambda: show_top_x(highest_rank_index-5, lowest_rank_index-5))
+    previous_button = Button(
+        top,
+        text="<<",
+        command=lambda: show_top_x(highest_rank_index-5,
+        lowest_rank_index-5)
+    )
     if highest_rank_index == 0:
         previous_button.configure(state=DISABLED)
-    next_button = Button(top, text=">>",
-                             command=lambda: show_top_x(highest_rank_index+5, lowest_rank_index+5))
+    next_button = Button(
+        top,
+        text=">>",
+        command=lambda: show_top_x(highest_rank_index+5,
+        lowest_rank_index+5)
+    )
     if lowest_rank_index > len(sorted_scps):
         next_button.configure(state=DISABLED)
 
-    close_button.grid(row=lowest_rank_index-highest_rank_index+1, column=1, padx=10, pady=(20, 10))
-    previous_button.grid(row=lowest_rank_index-highest_rank_index+1, column=0, padx=10, pady=(20, 10))
-    next_button.grid(row=lowest_rank_index-highest_rank_index+1, column=2, padx=10, pady=(20, 10))
+    close_button.grid(
+        row=lowest_rank_index-highest_rank_index+1,
+        column=1,
+        padx=10,
+        pady=(20, 10)
+    )
+    previous_button.grid(
+        row=lowest_rank_index-highest_rank_index+1,
+        column=0,
+        padx=10,
+        pady=(20, 10)
+    )
+    next_button.grid(
+        row=lowest_rank_index-highest_rank_index+1,
+        column=2,
+        padx=10,
+        pady=(20, 10)
+    )
 
-
-# function to update info_labels variable with desired info
 def update_info_var():
+    """
+    Updates info_labels variable with desired info.
+    """
     global info_var
 
-    num_scps_in_db = len(db.get_available_scp_numbers())
-    total_requests = global_vars.debug_requests_count
-    info_var.set(f"{num_scps_in_db} SCPs\nin database\n\n{total_requests} requests sent")
+    num_scps_in_db = len(ORM.get_available_scp_numbers())
+    total_requests = global_vars.requests_count
+    info_var.set(
+        f"{num_scps_in_db} SCPs\nin database\n\n{total_requests} requests sent"
+    )
 
 
 # create and update the info variable
@@ -493,42 +596,97 @@ scp_display_frame = LabelFrame(root, height=100, width=124)
 # fixes the frames size
 scp_display_frame.grid_propagate(0)
 scp_label = Label(scp_display_frame)
-favorite_checkbox = Checkbutton(root, text="Favorite", variable=is_favorite, onvalue=1, offvalue=0,
-                                command=update_current_scp)
-have_read_checkbox = Checkbutton(root, text="Mark as read", variable=have_read, onvalue=1, offvalue=0,
-                                 command=update_current_scp)
-dont_want_to_read_checkbox = Checkbutton(root, text="Don't want to read", variable=dont_want_to_read,
-                                         onvalue=1, offvalue=0, command=update_current_scp)
-read_later_checkbox = Checkbutton(root, text="Read later", variable=read_later, onvalue=1, offvalue=0,
-                                  command=update_current_scp)
+favorite_checkbox = Checkbutton(
+    root, text="Favorite",
+    variable=is_favorite,
+    onvalue=1,
+    offvalue=0,
+    command=update_current_scp
+)
+have_read_checkbox = Checkbutton(
+    root,
+    text="Mark as read",
+    variable=have_read,
+    onvalue=1,
+    offvalue=0,
+    command=update_current_scp
+)
+dont_want_to_read_checkbox = Checkbutton(
+    root,
+    text="Don't want to read",
+    variable=dont_want_to_read,
+    onvalue=1,
+    offvalue=0,
+    command=update_current_scp
+)
+read_later_checkbox = Checkbutton(
+    root,
+    text="Read later",
+    variable=read_later,
+    onvalue=1,
+    offvalue=0,
+    command=update_current_scp
+)
 
 choose_scp_frame = LabelFrame(root)
 entry_field = Entry(choose_scp_frame, width=19)
 find_scp_button = Button(choose_scp_frame, text="Find SCP", command=find_scp)
-add_update_database_button = Button(choose_scp_frame, text="Add/update SCP", command=add_update_database)
+add_update_database_button = Button(
+    choose_scp_frame, text="Add/update SCP", command=add_update_database
+)
 
 random_scp_frame = LabelFrame(root)
-is_favorite_filter_checkbox = Checkbutton(random_scp_frame, text="Only include favorite SCPs", variable=is_favorite_filter)
-have_read_filter_checkbox = Checkbutton(random_scp_frame, text="Exclude SCPs I have already read", variable=have_read_filter)
-dont_want_to_read_filter_checkbox = Checkbutton(random_scp_frame, text="Exclude SCPs I don't want to read",
-                                                variable=dont_want_to_read_filter)
-read_later_filter_checkbox = Checkbutton(random_scp_frame, text="Only include SCPs I want to read later",
-                                         variable=read_later_filter)
-exists_filter_checkbox = Checkbutton(random_scp_frame, text="Exclude SPCs that don't exist yet", variable=exists_filter)
-random_scp_button = Button(random_scp_frame, text="Get Random SCP", command=find_random_scp,
-                           width=15, height=2)
-display_top_10_button = Button(random_scp_frame, text="Top SCPs", command=lambda: show_top_x(0, 5),
-                               width=15, height=2)
+is_favorite_filter_checkbox = Checkbutton(
+    random_scp_frame, text="Only include favorite SCPs", variable=is_favorite_filter
+)
+have_read_filter_checkbox = Checkbutton(
+    random_scp_frame, text="Exclude SCPs I have already read", variable=have_read_filter
+)
+dont_want_to_read_filter_checkbox = Checkbutton(
+    random_scp_frame,
+    text="Exclude SCPs I don't want to read",
+    variable=dont_want_to_read_filter
+)
+read_later_filter_checkbox = Checkbutton(
+    random_scp_frame,
+    text="Only include SCPs I want to read later",
+    variable=read_later_filter
+)
+exists_filter_checkbox = Checkbutton(
+    random_scp_frame, text="Exclude SPCs that don't exist yet", variable=exists_filter
+)
+random_scp_button = Button(
+    random_scp_frame, text="Get Random SCP", command=find_random_scp, width=15, height=2
+)
+display_top_10_button = Button(
+    random_scp_frame,
+    text="Top SCPs",
+    command=lambda: show_top_x(0, 5),
+    width=15,
+    height=2
+)
 
 side_frame = LabelFrame(root)
-open_scp_in_browser_button = Button(side_frame, text="Open in\nBrowser", command=open_scp_in_browser,
-                                    width=15, height=3)
-info_label_scp_count = Label(side_frame, textvariable=info_var,
-                             width=15, height=4)
-update_multiple_button = Button(side_frame, text="Update\nmultiple SCps", command=update_multiple_scps_window,
-                                width=15, height=4)
-quit_button = Button(side_frame, text="Quit", command=root.quit,
-                     width=15, height=3)
+open_scp_in_browser_button = Button(
+    side_frame, text="Open in\nBrowser", command=open_scp_in_browser, width=15, height=3
+)
+info_label_scp_count = Label(
+    side_frame, textvariable=info_var, width=15, height=4
+)
+update_multiple_button = Button(
+    side_frame,
+    text="Update\nmultiple SCps",
+    command=update_multiple_scps_window,
+    width=15,
+    height=4
+)
+quit_button = Button(
+    side_frame,
+    text="Quit",
+    command=root.quit,
+    width=15,
+    height=3
+)
 
 # place widgets
 scp_display_frame.grid(row=0, column=0, columnspan=4, ipadx=170, padx=10, pady=10)
@@ -537,12 +695,16 @@ read_later_checkbox.grid(row=1, column=1, sticky=W, padx=5)
 have_read_checkbox.grid(row=1, column=2, sticky=W, padx=5)
 dont_want_to_read_checkbox.grid(row=1, column=3, sticky=W, padx=(5, 10))
 
-choose_scp_frame.grid(row=2, column=0, columnspan=5, padx=10, pady=10, ipadx=18, sticky=W)
+choose_scp_frame.grid(
+    row=2, column=0, columnspan=5, padx=10, pady=10, ipadx=18, sticky=W
+)
 entry_field.grid(row=4, column=0, padx=10, pady=10)
 find_scp_button.grid(row=4, column=1, padx=10, pady=10)
 add_update_database_button.grid(row=4, column=2, padx=10, pady=10)
 
-random_scp_frame.grid(row=3, column=0, columnspan=5, padx=10, pady=(0, 20), ipadx=5, sticky=W)
+random_scp_frame.grid(
+    row=3, column=0, columnspan=5, padx=10, pady=(0, 20), ipadx=5, sticky=W
+)
 is_favorite_filter_checkbox.grid(row=0, column=0, padx=10, pady=(10, 0), sticky=W)
 read_later_filter_checkbox.grid(row=1, column=0, padx=10, sticky=W)
 have_read_filter_checkbox.grid(row=2, column=0, padx=10, sticky=W)

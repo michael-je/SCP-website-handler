@@ -14,7 +14,7 @@ from scp import SCP
 
 class SCPDatabase():
     """
-    ORM that handles all interactions with the SCP database
+    ORM that handles all interactions with the SCP database.
     """
 
     def __init__(self, db_name):
@@ -114,7 +114,9 @@ class SCPDatabase():
         cursor = conn.cursor()
 
         try:
-            cursor.execute("SELECT * FROM scps WHERE id_number={}".format(scp_id_number))
+            cursor.execute(
+                "SELECT * FROM scps WHERE id_number={}".format(scp_id_number)
+            )
             # fetchall returns a list containing a dict of all field for scp if it 
             # exists, otherwise nothing
             data = cursor.fetchall()[0]
