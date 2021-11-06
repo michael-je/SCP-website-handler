@@ -8,6 +8,7 @@ scp.number -> id_number and scp.exists -> exists_online in this file because num
 import sqlite3
 from datetime import datetime
 from os import path
+from random import choice
 
 from scp import SCP
 
@@ -117,7 +118,7 @@ class SCPDatabase():
             cursor.execute(
                 "SELECT * FROM scps WHERE id_number={}".format(scp_id_number)
             )
-            # fetchall returns a list containing a dict of all field for scp if it 
+            # fetchall returns a list containing a dict of all field for scp if it
             # exists, otherwise nothing
             data = cursor.fetchall()[0]
         except IndexError:
@@ -212,7 +213,7 @@ class SCPDatabase():
         conn.close()
         return 1
 
-    def get_available_scp_numbers(self, additional_data=[]):
+    def get_available_scp_numbers(self, additional_data=None):
         """
         Searches the database and returns the ids of all SCPs in it.
 
@@ -221,6 +222,9 @@ class SCPDatabase():
 
         This function returns the data for each scp as a dict.
         """
+        if additional_data is None:
+            additional_data = []
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
@@ -232,7 +236,7 @@ class SCPDatabase():
         # returns a list of tuples
         db_data = cursor.fetchall()
 
-        # now we need to dynamically create a dictionary for each scps key-value pairs 
+        # now we need to dynamically create a dictionary for each scps key-value pairs
         # and collect those together in a list as output
         output_data= []
         for scp in db_data:
@@ -242,3 +246,91 @@ class SCPDatabase():
             output_data.append(scp_dict)
 
         return output_data
+
+    def get_random_scp(
+        self,
+        not_read_yet=True,
+        want_to_read=True,
+        does_exist=True,
+        is_favorite=False,
+        read_later=False
+    ):
+        """
+        Return a random SCP from the database.
+        Kwargs can be used to narrrow down the result.
+        """
+        extra_flags = []
+        if not_read_yet:
+            extra_flags.append("have_read")
+        if want_to_read:
+            extra_flags.append("dont_want_to_read")
+        if does_exist:
+            extra_flags.append("exists_online")
+        if is_favorite:
+            extra_flags.append("is_favorite")
+        if read_later:
+            extra_flags.append("read_later")
+        candidates = self.get_available_scp_numbers(extra_flags)
+
+        # Here we filter through the candidate scps,
+        # continuing the loop (thus excluding the scp) if a condition is met.
+        filtered_candidates = []
+        for scp in candidates:
+            if scp.get("have_read") == 1:
+                continue
+            if scp.get("dont_want_to_read") == 1:
+                continue
+            if scp.get("exists_online") == 0:
+                continue
+            if scp.get("is_favorite") == 0:
+                continue
+            if scp.get("read_later") == 0:
+                continue
+            filtered_candidates.append(scp.get("number"))
+        try:
+            random_scp_number = choice(filtered_candidates)
+            random_scp = self.get_scp(random_scp_number)
+            return random_scp
+        except IndexError:
+            # -1 indicates that the search returned no results
+            return -1
+
+    def add_update_database(self, scp_number):
+        """
+        Takes the scp_number from the entry field and adds/updates
+        the corresponding SCP in the database.
+        """
+        input_flag = self.sanitize_input(scp_number)
+
+        if input_flag == -1:
+            messagebox.showerror(window_name, "Invalid SCP number!")
+            entry_field.delete(0, END)
+            return
+
+        result = functions.update_scp(scp_number)
+        set_current_scp(scp_number)
+
+        if result == 1:
+            messagebox.showinfo(window_name, "SCP successfully added to database!")
+        if result == 2:
+            messagebox.showinfo(window_name, "SCP successfully updated in database!")
+
+        update_info_var()
+        return ORM.get_scp(random_scp_number)
+
+    def sanitize_user_input(self, user_input):
+        """
+        Returns codes based on user input.
+        1 means that the input format is valid, -1 means invalid.
+        """
+        if not user_input:
+            return -1
+        try:
+            user_input_int = int(user_input)
+        except ValueError:
+            return -1
+        if len(user_input) > 5:
+            return -1
+        if user_input_int < 0:
+            return -1
+        return 1

@@ -32,6 +32,19 @@ class SCP:
             str_number = '0' + str_number
         self.number = str_number
 
+    def get_display_string(include_link=False):
+        """
+        Returns a string with formatted information about the self.
+        This string is intended to be displayed to the user.
+        """
+        output = (
+            f"self-{self.number}\n{self.name}\nObject Class: " +
+            f"{self.object_class}\nRating: {self.rating}"
+        )
+        if include_link:
+            output += f"\n{self.URL}"
+        return output
+
     def print(self, debug=False):
         print(
             f"""

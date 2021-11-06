@@ -2,11 +2,14 @@
 This is the web scraper, which handles all data gathering from the wiki.
 """
 
-import global_vars
 from time import sleep
 import requests
-import cfg
 from bs4 import BeautifulSoup
+from webbrowser import open as wp_open
+
+import cfg
+import global_vars
+
 
 class WikiScraper():
     def __init__(self):
@@ -54,11 +57,11 @@ class WikiScraper():
             str_number = '0' + str_number
         return str_number
 
-    def go_to_scp_page(scp_number):
+    def go_to_scp_page(self, scp_number):
         """
         Opens the SCP's webpage in a webbrowser.
         """
-        str_number = scraper.reformat_scp_num(scp_number)
+        str_number = self.reformat_scp_num(scp_number)
         URL = cfg.HOMEPAGE_URL + 'scp-' + str_number
         wp_open(URL, new=2)
 

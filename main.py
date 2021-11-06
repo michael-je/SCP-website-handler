@@ -378,7 +378,7 @@ def find_random_scp():
     """
     Displays a random SCP from the database.
     """
-    scp = functions.get_random_scp(
+    scp = ORM.get_random_scp(
         not_read_yet=have_read_filter.get(),
         want_to_read=dont_want_to_read_filter.get(),
         does_exist=exists_filter.get(),
