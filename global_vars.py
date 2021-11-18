@@ -2,7 +2,7 @@ import cfg
 
 requests_count = 0
 
-# this is used by functions.update_scp when updating multiple SCPS via the gui
+# this is used by scraper.update_scp when updating multiple SCPS via the gui
 # it allows us to skip a few requests to the server
 series_links = None
 series_sources = {}

@@ -37,7 +37,7 @@ class TkinterGUI():
         self.read_later_filter.set(0)
         self.exists_filter.set(1)
 
-    def update_current_scp():
+    def update_current_scp(self):
         """
         Update the database with the information which is currently in the gui.
         """
@@ -50,58 +50,7 @@ class TkinterGUI():
         self.current_scp.have_read = self.have_read.get()
         self.current_scp.dont_want_to_read = self.dont_want_to_read.get()
         self.current_scp.read_later = self.read_later.get()
-        ORM.update_scp(self.current_scp)
-
-    def set_current_scp(scp_number):
-        """
-        Sets current_scp and displays it in the scp_display_frame
-        (based on its number - ?)
-        """
-        str_number = scraper.reformat_scp_num(scp_number)
-
-        # This block handles the case of a random search turning up empty,
-        # thus calling this function with an argument of -1.
-        if scp_number == -1:
-            self.current_scp = -1
-            self.scp_label.destroy()
-            self.scp_label = Label(
-                self.scp_display_frame,
-                text="No SCP found for given criteria",
-                justify=LEFT
-            )
-            self.scp_label.grid(row=0, column=0, sticky=W)
-            return
-
-        # Set up an scp class with current scp.
-        scp = ORM.get_scp(scp_number)
-        self.current_scp = scp
-
-        # Set checkbox variables to reflect state of self.current_scp.
-        # First check whether self.current_scp is a valid SCP object or 
-        # simply an int of value -1 (representing an error).
-        if scp != -1:
-            self.is_favorite.set(scp.is_favorite)
-            self.have_read.set(scp.have_read)
-            self.dont_want_to_read.set(scp.dont_want_to_read)
-            self.read_later.set(scp.read_later)
-
-        # Destroy and redraw the info in self.scp_display_frame.
-        self.scp_label.destroy()
-        if scp == -1:
-            self.scp_label = Label(
-                self.scp_display_frame,
-                text=f"SCP-{str_number} not in database!",
-                justify=LEFT
-            )
-        elif scp.exists == False:
-            self.scp_label = Label(
-                self.scp_display_frame,
-                text=f"SCP-{str_number} doesn't exist yet!",
-                justify=LEFT
-            )
-        else:
-            text = curremt_scp.get_display_string(scp.number)
-            self.scp_label = Label(self.scp_display_frame, text=text, justify=LEFT)
+        ORM.update_scp_in_database(self.current_scp)
 
     def update_multiple_scps_window():
         """
@@ -222,7 +171,7 @@ class TkinterGUI():
             # update the scps and store the resulsts to display afterwards
             update_results = []
             for scp_number in scp_numbers_to_update:
-                result = functions.update_scp(scp_number)
+                result = scraper.update_scp(scp_number)
                 update_results.append(result)
                 print(f"Updated SCP-{scp_number}")
             # fetch the current request count to compare with the one taken earlier

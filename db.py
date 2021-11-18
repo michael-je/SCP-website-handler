@@ -57,7 +57,7 @@ class SCPDatabase():
         conn.commit()
         conn.close()
 
-    def update_scp(self, scp):
+    def update_scp_in_database(self, scp):
         """
         Update an SCP in the database
         """
@@ -294,29 +294,6 @@ class SCPDatabase():
         except IndexError:
             # -1 indicates that the search returned no results
             return -1
-
-    def add_update_database(self, scp_number):
-        """
-        Takes the scp_number from the entry field and adds/updates
-        the corresponding SCP in the database.
-        """
-        input_flag = self.sanitize_input(scp_number)
-
-        if input_flag == -1:
-            messagebox.showerror(window_name, "Invalid SCP number!")
-            entry_field.delete(0, END)
-            return
-
-        result = functions.update_scp(scp_number)
-        set_current_scp(scp_number)
-
-        if result == 1:
-            messagebox.showinfo(window_name, "SCP successfully added to database!")
-        if result == 2:
-            messagebox.showinfo(window_name, "SCP successfully updated in database!")
-
-        update_info_var()
-        return ORM.get_scp(random_scp_number)
 
     def sanitize_user_input(self, user_input):
         """
