@@ -32,13 +32,13 @@ class SCP:
             str_number = '0' + str_number
         self.number = str_number
 
-    def get_display_string(include_link=False):
+    def get_display_string(self, include_link=False):
         """
         Returns a string with formatted information about the self.
         This string is intended to be displayed to the user.
         """
         output = (
-            f"self-{self.number}\n{self.name}\nObject Class: " +
+            f"SCP-{self.number}\n{self.name}\nObject Class: " +
             f"{self.object_class}\nRating: {self.rating}"
         )
         if include_link:
@@ -70,5 +70,5 @@ class SCP:
             )
 
     def __repr__(self):
-        return "{} - {}\n{}\n".format(self.number, self.name, self.URL)
+        return "SCP-{}".format(self.number)
 

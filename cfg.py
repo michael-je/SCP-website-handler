@@ -10,7 +10,7 @@ BACKGROUND_COLOR = "lightgrey"
 LOGO_PATH = "scp-logo.png"
 WINDOW_NAME = "SCP Handler"
 WINDOW_GEOMETRY = "658x356"
-WINDOW_SPAWN_XY = "350+350"
+WINDOW_SPAWN_XY = "1000+1080"
 
 # this is used to sleep the program before every request send to avoid spam
 DELAY_TIME_MS_DEFAULT = 20

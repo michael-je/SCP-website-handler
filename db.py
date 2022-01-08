@@ -213,6 +213,7 @@ class SCPDatabase():
         conn.close()
         return 1
 
+    # TODO depricate this
     def get_available_scp_numbers(self, additional_data=None):
         """
         Searches the database and returns the ids of all SCPs in it.
@@ -246,6 +247,16 @@ class SCPDatabase():
             output_data.append(scp_dict)
 
         return output_data
+
+    def get_available_scps(self, *args):
+        """
+        Returns a list of scp instances given a list of scp numbers
+        """
+        scp_data = self.get_available_scp_numbers(*args)
+        scp_nums = [scp['number'] for scp in scp_data]
+        scp_list = [self.get_scp(id_num) for id_num in scp_nums]
+
+        return scp_list
 
     def get_random_scp(
         self,
