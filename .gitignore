@@ -2,5 +2,6 @@ __pycache__
 /.idea
 /Development
 .DS_Store
-scps.db
+*.db
 scp-logo.png
+/dev
